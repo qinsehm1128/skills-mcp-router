@@ -11,11 +11,14 @@ import {
 import { Button } from "@mcp_router/ui";
 import { Badge } from "@mcp_router/ui";
 import { Switch } from "@mcp_router/ui";
+import { Input } from "@mcp_router/ui";
 import { useThemeStore } from "@/renderer/stores";
 import { useAuthStore } from "../../stores";
-import { IconBrandDiscord } from "@tabler/icons-react";
+import { IconBrandDiscord, IconCheck, IconX } from "@tabler/icons-react";
 import { electronPlatformAPI as platformAPI } from "../../platform-api/electron-platform-api";
 import { postHogService } from "../../services/posthog-service";
+import type { AIConfig } from "@mcp_router/shared";
+import { DEFAULT_AI_CONFIG } from "@mcp_router/shared";
 
 const Settings: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -26,6 +29,22 @@ const Settings: React.FC = () => {
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState<boolean>(true);
   const [showWindowOnStartup, setShowWindowOnStartup] = useState<boolean>(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // AI Configuration State
+  const [aiConfig, setAiConfig] = useState<AIConfig>(DEFAULT_AI_CONFIG);
+  const [isSavingAIConfig, setIsSavingAIConfig] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] = useState<{
+    success: boolean;
+    error?: string;
+  } | null>(null);
+
+  // HTTP Server State
+  const [httpServerInfo, setHttpServerInfo] = useState<{
+    port: number;
+    isRunning: boolean;
+    endpoints: { path: string; description: string }[];
+  } | null>(null);
 
   // Zustand stores
   const { theme, setTheme } = useThemeStore();
@@ -81,6 +100,32 @@ const Settings: React.FC = () => {
       }
     };
     loadSettings();
+
+    // Load AI config
+    const loadAIConfig = async () => {
+      try {
+        const config = await window.electronAPI.getAIConfig();
+        if (config) {
+          setAiConfig(config);
+        }
+      } catch {
+        console.log("Failed to load AI config, using defaults");
+      }
+    };
+    loadAIConfig();
+
+    // Load HTTP server info
+    const loadHttpServerInfo = async () => {
+      try {
+        const info = await window.electronAPI.getHttpServerInfo();
+        if (info) {
+          setHttpServerInfo(info);
+        }
+      } catch {
+        console.log("Failed to load HTTP server info");
+      }
+    };
+    loadHttpServerInfo();
   }, []);
 
   // Settingsページ表示時にクレジット残高を更新
@@ -215,6 +260,41 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Handle AI config changes
+  const handleAIConfigChange = (field: keyof AIConfig, value: string | boolean) => {
+    setAiConfig((prev) => ({ ...prev, [field]: value }));
+    setConnectionTestResult(null); // Clear test result when config changes
+  };
+
+  // Save AI config
+  const handleSaveAIConfig = async () => {
+    setIsSavingAIConfig(true);
+    try {
+      await window.electronAPI.saveAIConfig(aiConfig);
+    } catch (error) {
+      console.error("Failed to save AI config:", error);
+    } finally {
+      setIsSavingAIConfig(false);
+    }
+  };
+
+  // Test AI connection
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    setConnectionTestResult(null);
+    try {
+      // Save config first
+      await window.electronAPI.saveAIConfig(aiConfig);
+      // Then test connection
+      const result = await window.electronAPI.testAIConnection();
+      setConnectionTestResult(result);
+    } catch (error: any) {
+      setConnectionTestResult({ success: false, error: error.message });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   return (
     <div className="p-6 flex flex-col gap-6">
       <h1 className="text-3xl font-bold">{t("common.settings")}</h1>
@@ -273,6 +353,66 @@ const Settings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* HTTP Server Card */}
+      {httpServerInfo && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">{t("settings.httpServer")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t("settings.httpServerDescription")}
+            </p>
+
+            {/* Server Status */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t("settings.httpServerStatus")}</span>
+              <Badge variant={httpServerInfo.isRunning ? "default" : "secondary"}>
+                {httpServerInfo.isRunning
+                  ? t("settings.httpServerRunning")
+                  : t("settings.httpServerStopped")}
+              </Badge>
+            </div>
+
+            {/* Server URL */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("settings.httpServerUrl")}</label>
+              <div className="flex gap-2">
+                <Input
+                  value={`http://localhost:${httpServerInfo.port}/mcp`}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`http://localhost:${httpServerInfo.port}/mcp`);
+                  }}
+                >
+                  {t("settings.httpServerCopyUrl")}
+                </Button>
+              </div>
+            </div>
+
+            {/* Endpoints */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("settings.httpServerEndpoints")}</label>
+              <div className="rounded-md bg-muted p-3 space-y-2">
+                {httpServerInfo.endpoints.map((endpoint, index) => (
+                  <div key={index} className="flex items-start gap-2 text-sm">
+                    <code className="bg-background px-2 py-0.5 rounded font-mono text-xs">
+                      {endpoint.path}
+                    </code>
+                    <span className="text-muted-foreground">{endpoint.description}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Authentication Card - Optional Login */}
       <Card>
@@ -418,6 +558,124 @@ const Settings: React.FC = () => {
             >
               <IconBrandDiscord className="h-5 w-5" />
               {t("settings.joinDiscord")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* AI Configuration Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">{t("aiConfig.title")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t("aiConfig.description")}
+          </p>
+
+          {/* Enable Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <label className="text-sm font-medium">
+                {t("aiConfig.enable")}
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {t("aiConfig.enableDescription")}
+              </p>
+            </div>
+            <Switch
+              checked={aiConfig.enabled}
+              onCheckedChange={(checked) => handleAIConfigChange("enabled", checked)}
+            />
+          </div>
+
+          {/* API Base URL */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("aiConfig.baseUrl")}
+            </label>
+            <Input
+              value={aiConfig.baseUrl}
+              onChange={(e) => handleAIConfigChange("baseUrl", e.target.value)}
+              placeholder={t("aiConfig.baseUrlPlaceholder")}
+              disabled={!aiConfig.enabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("aiConfig.baseUrlHelp")}
+            </p>
+          </div>
+
+          {/* API Key */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("aiConfig.apiKey")}
+            </label>
+            <Input
+              type="password"
+              value={aiConfig.apiKey}
+              onChange={(e) => handleAIConfigChange("apiKey", e.target.value)}
+              placeholder={t("aiConfig.apiKeyPlaceholder")}
+              disabled={!aiConfig.enabled}
+            />
+          </div>
+
+          {/* Model */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("aiConfig.model")}
+            </label>
+            <Input
+              value={aiConfig.model}
+              onChange={(e) => handleAIConfigChange("model", e.target.value)}
+              placeholder={t("aiConfig.modelPlaceholder")}
+              disabled={!aiConfig.enabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("aiConfig.modelHelp")}
+            </p>
+          </div>
+
+          {/* Connection Test Result */}
+          {connectionTestResult && (
+            <div
+              className={`flex items-center gap-2 p-3 rounded-md ${
+                connectionTestResult.success
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                  : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+              }`}
+            >
+              {connectionTestResult.success ? (
+                <>
+                  <IconCheck className="h-4 w-4" />
+                  <span className="text-sm">{t("aiConfig.connectionSuccess")}</span>
+                </>
+              ) : (
+                <>
+                  <IconX className="h-4 w-4" />
+                  <span className="text-sm">
+                    {t("aiConfig.connectionFailed")}: {connectionTestResult.error}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleTestConnection}
+              disabled={!aiConfig.enabled || !aiConfig.baseUrl || !aiConfig.apiKey || isTestingConnection}
+              className="flex-1"
+            >
+              {isTestingConnection ? t("aiConfig.testing") : t("aiConfig.testConnection")}
+            </Button>
+            <Button
+              onClick={handleSaveAIConfig}
+              disabled={isSavingAIConfig}
+              className="flex-1"
+            >
+              {isSavingAIConfig ? t("common.saving") : t("common.save")}
             </Button>
           </div>
         </CardContent>

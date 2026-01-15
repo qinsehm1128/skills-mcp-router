@@ -113,6 +113,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // System
   getPlatform: () => ipcRenderer.invoke("system:getPlatform"),
+  getHttpServerInfo: () => ipcRenderer.invoke("system:getHttpServerInfo"),
 
   // Workspace Management
   listWorkspaces: () => ipcRenderer.invoke("workspace:list"),
@@ -174,4 +175,40 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updateProject: (id: string, updates: { name?: string }) =>
     ipcRenderer.invoke("project:update", id, updates),
   deleteProject: (id: string) => ipcRenderer.invoke("project:delete", id),
+
+  // Skills Management
+  getSkillsConfig: () => ipcRenderer.invoke("skills:get-config"),
+  saveSkillsConfig: (config: any) =>
+    ipcRenderer.invoke("skills:save-config", config),
+  updateSkillsConfig: (updates: any) =>
+    ipcRenderer.invoke("skills:update-config", updates),
+  addSkillsOutputPath: (outputPath: any) =>
+    ipcRenderer.invoke("skills:add-output-path", outputPath),
+  removeSkillsOutputPath: (id: string) =>
+    ipcRenderer.invoke("skills:remove-output-path", id),
+  updateSkillsOutputPath: (id: string, updates: any) =>
+    ipcRenderer.invoke("skills:update-output-path", id, updates),
+  toggleSkillsOutputPath: (id: string) =>
+    ipcRenderer.invoke("skills:toggle-output-path", id),
+  getSkillsPresetPath: (type: "cursor" | "cline" | "windsurf") =>
+    ipcRenderer.invoke("skills:get-preset-path", type),
+  validateSkillsConfig: (config: any) =>
+    ipcRenderer.invoke("skills:validate-config", config),
+  manualSkillsSync: () => ipcRenderer.invoke("skills:manual-sync"),
+
+  // Entry MCP Management
+  getEntryMCPConfig: () => ipcRenderer.invoke("entry-mcp:get-config"),
+  saveEntryMCPConfig: (config: any) =>
+    ipcRenderer.invoke("entry-mcp:save-config", config),
+  toggleEntryMCPEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke("entry-mcp:toggle-enabled", enabled),
+
+  // AI Summary Management
+  getAIConfig: () => ipcRenderer.invoke("ai-summary:get-config"),
+  saveAIConfig: (config: any) =>
+    ipcRenderer.invoke("ai-summary:save-config", config),
+  testAIConnection: () => ipcRenderer.invoke("ai-summary:test-connection"),
+  generateAISummary: (request: any) =>
+    ipcRenderer.invoke("ai-summary:generate", request),
+  isAIEnabled: () => ipcRenderer.invoke("ai-summary:is-enabled"),
 });

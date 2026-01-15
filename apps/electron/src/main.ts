@@ -1,4 +1,11 @@
-import { app, BrowserWindow, session, shell, nativeTheme } from "electron";
+import {
+  app,
+  BrowserWindow,
+  session,
+  shell,
+  nativeTheme,
+  ipcMain,
+} from "electron";
 import path from "node:path";
 import { MCPServerManager } from "@/main/modules/mcp-server-manager/mcp-server-manager";
 import { AggregatorServer } from "@/main/modules/mcp-server-runtime/aggregator-server";
@@ -363,6 +370,14 @@ async function initApplication(): Promise<void> {
 
   // IPC通信ハンドラの初期化
   setupIpcHandlers({ getServerManager: () => serverManager });
+
+  // HTTP サーバー情報を取得する IPC ハンドラ
+  ipcMain.handle("system:getHttpServerInfo", () => {
+    if (mcpHttpServer) {
+      return mcpHttpServer.getServerInfo();
+    }
+    return null;
+  });
 
   const shouldShowMainWindow =
     (!launchedAtLogin || showWindowOnStartup) && !launchedWithHiddenFlag;

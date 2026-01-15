@@ -11,6 +11,9 @@
   "scripts": {
     "start": "electron-forge start",
     "dev": "electron-forge start --enable-logging",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "package": "cross-env NODE_ENV=production electron-forge package",
     "package:x64": "cross-env NODE_ENV=production npm_config_target_arch=x64 electron-forge package",
     "package:arm64": "cross-env NODE_ENV=production npm_config_target_arch=arm64 electron-forge package",
@@ -93,6 +96,7 @@
     "@types/uuid": "^10.0.0",
     "@types/webpack": "^5.28.5",
     "@vercel/webpack-asset-relocator-loader": "1.7.3",
+    "@vitest/coverage-v8": "^4.0.17",
     "autoprefixer": "^10.4.22",
     "cross-env": "^7.0.3",
     "css-loader": "^6.11.0",
@@ -109,6 +113,7 @@
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.17",
     "webpack": "^5.103.0"
   }
 }

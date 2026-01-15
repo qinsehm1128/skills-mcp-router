@@ -10,7 +10,10 @@ import {
   Plus,
   Trash,
   Terminal,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -39,6 +42,7 @@ interface ServerDetailsAdvancedSheetProps {
     updatedInputParams?: Record<string, unknown>,
     editedName?: string,
     updatedToolPermissions?: Record<string, boolean>,
+    editedDescription?: string,
   ) => Promise<void>;
 }
 
@@ -46,12 +50,13 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
   server,
   handleSave,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const platformAPI = usePlatformAPI();
   const {
     isAdvancedEditing: isOpen,
     isLoading,
     editedName,
+    editedDescription,
     editedCommand,
     editedArgs,
     editedBearerToken,
@@ -60,6 +65,7 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
     editedToolPermissions,
     setIsAdvancedEditing: setIsOpen,
     setEditedName,
+    setEditedDescription,
     setEditedCommand,
     setEditedArgs,
     setEditedBearerToken,
@@ -73,6 +79,23 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
     removeEnvPair,
     addEnvPair,
   } = useServerEditingStore();
+
+  // AI功能状态
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+
+  // 检查AI是否启用
+  useEffect(() => {
+    const checkAIEnabled = async () => {
+      try {
+        const enabled = await window.electronAPI.isAIEnabled();
+        setAiEnabled(enabled);
+      } catch (error) {
+        console.error("Failed to check AI status:", error);
+      }
+    };
+    checkAIEnabled();
+  }, []);
   const deriveInitialToolPermissions = useCallback(
     (toolList?: MCPTool[] | null): Record<string, boolean> => {
       const serverPermissions = server.toolPermissions || {};
@@ -246,6 +269,89 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
     return updatedInputParams;
   };
 
+  // 渲染Description字段
+  const renderDescriptionField = () => (
+    <div className="space-y-3">
+      <Label
+        htmlFor="server-description"
+        className="text-base font-medium flex items-center gap-1.5"
+      >
+        <FileText className="h-4 w-4 text-muted-foreground" />
+        {t("mcpDescription.label")}
+      </Label>
+      <div className="flex gap-2">
+        <Input
+          id="server-description"
+          value={editedDescription}
+          onChange={(e) => {
+            if (e.target.value.length <= 50) {
+              setEditedDescription(e.target.value);
+            }
+          }}
+          placeholder={t("mcpDescription.placeholder")}
+          maxLength={50}
+          className="flex-1"
+        />
+        {aiEnabled && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              console.log("[AI Generate] Button clicked, starting generation...");
+              setIsGeneratingDesc(true);
+              try {
+                // 获取当前语言代码 (en, zh, ja)
+                const currentLang = i18n.language?.split("-")[0] || "en";
+                const request = {
+                  serverName: editedName || server.name,
+                  tools: server.tools?.map((tool) => ({
+                    name: tool.name,
+                    description: tool.description,
+                  })) || [],
+                  language: currentLang,
+                };
+                console.log("[AI Generate] Request:", request);
+                const result = await window.electronAPI.generateAISummary(request);
+                console.log("[AI Generate] Result:", result);
+                if (result.success && result.description) {
+                  setEditedDescription(result.description);
+                  toast.success(t("aiConfig.generateSuccess"));
+                } else {
+                  console.error("[AI Generate] Failed:", result.error);
+                  toast.error(result.error || t("aiConfig.generateFailed"));
+                }
+              } catch (error) {
+                console.error("[AI Generate] Exception:", error);
+                toast.error(t("aiConfig.generateFailed"));
+              } finally {
+                setIsGeneratingDesc(false);
+              }
+            }}
+            disabled={isGeneratingDesc}
+            className="whitespace-nowrap"
+          >
+            {isGeneratingDesc ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-1" />
+                {t("mcpDescription.generateWithAI")}
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+      <div className="flex justify-between">
+        <p className="text-xs text-muted-foreground">
+          {t("mcpDescription.help")}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t("mcpDescription.charCount", { count: editedDescription.length })}
+        </p>
+      </div>
+    </div>
+  );
+
   const renderToolsContent = () => {
     if (isToolsLoading) {
       return (
@@ -382,6 +488,9 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
                   placeholder={t("discoverServers.serverNameRequired")}
                 />
               </div>
+
+              {/* Server Description */}
+              {renderDescriptionField()}
 
               {/* Edit Forms */}
               {server.serverType === "local" ? (
@@ -549,6 +658,9 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
                 />
               </div>
 
+              {/* Server Description */}
+              {renderDescriptionField()}
+
               {/* Edit Forms */}
               {server.serverType === "local" ? (
                 <>
@@ -693,6 +805,9 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
                 placeholder={t("discoverServers.serverNameRequired")}
               />
             </div>
+
+            {/* Server Description */}
+            {renderDescriptionField()}
 
             {/* Edit Forms */}
             {server.serverType === "local" ? (
@@ -839,11 +954,12 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
                   ? { ...editedToolPermissions }
                   : undefined;
 
-                // Call the parent's handleSave with inputParams and editedName
+                // Call the parent's handleSave with inputParams, editedName, toolPermissions and description
                 await handleSave(
                   updatedInputParams,
                   editedName,
                   toolPermissionsToSave,
+                  editedDescription,
                 );
 
                 // Reset dirty state after successful save

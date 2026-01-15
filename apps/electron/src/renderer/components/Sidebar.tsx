@@ -7,6 +7,7 @@ import {
   IconDeviceDesktop,
   IconDownload,
   IconWebhook,
+  IconFileDescription,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "@/renderer/stores";
@@ -191,7 +192,25 @@ const SidebarComponent: React.FC = () => {
               </CollapsibleContent>
             </SidebarGroup>
           </Collapsible>
-          {/* Projects filter removed */}
+
+          {/* Skills - Independent section */}
+          {!isRemoteWorkspace && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip={t("skills.title")}
+                isActive={location.pathname === "/skills"}
+              >
+                <Link
+                  to="/skills"
+                  className="flex items-center gap-3 py-5 px-3 w-full"
+                >
+                  <IconFileDescription className="h-6 w-6" />
+                  <span className="text-base">{t("skills.title")}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarContent>
 

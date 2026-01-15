@@ -16,6 +16,7 @@ import { IconProgress } from "@tabler/icons-react";
 import { postHogService } from "../services/posthog-service";
 import WorkspaceManagement from "./workspace/WorkspaceManagement";
 import WorkflowManager from "./workflow/WorkflowManager";
+import SkillsPage from "./skills/SkillsPage";
 
 // Main App component
 const App: React.FC = () => {
@@ -156,6 +157,7 @@ const App: React.FC = () => {
               <Route path="/servers/add" element={<DiscoverWrapper />} />
               <Route path="/clients" element={<McpAppsManager />} />
               <Route path="/logs" element={<LogViewer />} />
+              <Route path="/skills" element={<SkillsPage />} />
               <Route
                 path="/hooks"
                 element={<Navigate to="/workflows" replace />}
