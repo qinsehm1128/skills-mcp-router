@@ -5,6 +5,8 @@
 
 import { AppSettings } from "./settings-types";
 import { Token, TokenServerAccess } from "./token-types";
+import { SkillsConfig } from "./skills-types";
+import { AIConfig } from "./ai-config-types";
 
 /**
  * 共通設定ファイルの構造
@@ -21,6 +23,16 @@ export interface SharedConfig {
   mcpApps: {
     tokens: Token[];
   };
+
+  /**
+   * Skills設定
+   */
+  skills?: SkillsConfig;
+
+  /**
+   * AI設定
+   */
+  aiConfig?: AIConfig;
 
   /**
    * マイグレーション情報
@@ -89,4 +101,24 @@ export interface ISharedConfigManager {
    * 新しいサーバーがあれば自動的にトークンに追加
    */
   syncTokensWithWorkspaceServers(serverList: string[]): void;
+
+  /**
+   * Skills設定を取得
+   */
+  getSkillsConfig(): SkillsConfig;
+
+  /**
+   * Skills設定を保存
+   */
+  saveSkillsConfig(config: SkillsConfig): void;
+
+  /**
+   * AI設定を取得
+   */
+  getAIConfig(): AIConfig;
+
+  /**
+   * AI設定を保存
+   */
+  saveAIConfig(config: AIConfig): void;
 }

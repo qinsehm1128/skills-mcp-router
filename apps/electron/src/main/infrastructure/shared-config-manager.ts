@@ -8,6 +8,10 @@ import {
   Token,
   DEFAULT_APP_SETTINGS,
   TokenServerAccess,
+  SkillsConfig,
+  DEFAULT_SKILLS_CONFIG,
+  AIConfig,
+  DEFAULT_AI_CONFIG,
 } from "@mcp_router/shared";
 import { SqliteManager } from "./database/sqlite-manager";
 
@@ -354,6 +358,40 @@ export class SharedConfigManager implements ISharedConfigManager {
         "[SharedConfigManager] Tokens synchronized with workspace servers",
       );
     }
+  }
+
+  /**
+   * Skills設定を取得
+   */
+  getSkillsConfig(): SkillsConfig {
+    return this.config.skills
+      ? { ...this.config.skills }
+      : { ...DEFAULT_SKILLS_CONFIG };
+  }
+
+  /**
+   * Skills設定を保存
+   */
+  saveSkillsConfig(config: SkillsConfig): void {
+    this.config.skills = { ...config };
+    this.saveConfig();
+  }
+
+  /**
+   * AI設定を取得
+   */
+  getAIConfig(): AIConfig {
+    return this.config.aiConfig
+      ? { ...this.config.aiConfig }
+      : { ...DEFAULT_AI_CONFIG };
+  }
+
+  /**
+   * AI設定を保存
+   */
+  saveAIConfig(config: AIConfig): void {
+    this.config.aiConfig = { ...config };
+    this.saveConfig();
   }
 }
 

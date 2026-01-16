@@ -988,6 +988,7 @@ const Home: React.FC = () => {
             updatedInputParams?: any,
             editedName?: string,
             updatedToolPermissions?: Record<string, boolean>,
+            editedDescription?: string,
           ) => {
             try {
               const {
@@ -1026,6 +1027,7 @@ const Home: React.FC = () => {
 
               const updatedConfig: any = {
                 name: editedName || advancedSettingsServer.name,
+                description: editedDescription,
                 command: editedCommand,
                 args: editedArgs,
                 env: envObj,
@@ -1047,6 +1049,20 @@ const Home: React.FC = () => {
                   updatedToolPermissions,
                 );
               }
+
+              // 如果服务器正在运行且description有变化，同步Skills
+              if (
+                advancedSettingsServer.status === "running" &&
+                editedDescription !== advancedSettingsServer.description
+              ) {
+                try {
+                  await window.electronAPI.manualSkillsSync();
+                } catch {
+                  // Skills同步失败不影响保存成功
+                  console.warn("Failed to sync skills after description update");
+                }
+              }
+
               setIsAdvancedEditing(false);
               setAdvancedSettingsServer(null);
               toast.success(t("serverDetails.updateSuccess"));

@@ -19,6 +19,9 @@
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx,.mjs,.cjs --fix",
     "typecheck": "turbo run typecheck",
     "knip": "knip",
+    "test": "pnpm --filter @mcp_router/electron run test",
+    "test:watch": "pnpm --filter @mcp_router/electron run test:watch",
+    "test:coverage": "pnpm --filter @mcp_router/electron run test:coverage",
     "test:e2e": "pnpm --filter @mcp_router/electron run test:e2e",
     "postinstall": "electron-rebuild"
   },

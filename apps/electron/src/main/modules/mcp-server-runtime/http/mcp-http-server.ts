@@ -8,6 +8,10 @@ import { getPlatformAPIManager } from "../../workspace/platform-api-manager";
 import { TokenValidator } from "../token-validator";
 import { ProjectRepository } from "../../projects/projects.repository";
 import { PROJECT_HEADER, UNASSIGNED_PROJECT_ID } from "@mcp_router/shared";
+import {
+  EntryMCPServer,
+  type EntryMCPServerDeps,
+} from "../../entry-mcp/entry-mcp.server";
 
 /**
  * HTTP server that exposes MCP functionality through REST endpoints
@@ -17,6 +21,7 @@ export class MCPHttpServer {
   private server: http.Server | null = null;
   private port: number;
   private aggregatorServer: AggregatorServer;
+  private entryMCPServer: EntryMCPServer;
   private tokenValidator: TokenValidator;
   // SSEセッション用のマップ
   private sseSessions: Map<string, SSEServerTransport> = new Map();
@@ -33,6 +38,40 @@ export class MCPHttpServer {
     this.app = express();
     // TokenValidatorはサーバー名とIDのマッピングが必要
     this.tokenValidator = new TokenValidator(new Map());
+
+    // EntryMCPServer の初期化
+    const entryDeps: EntryMCPServerDeps = {
+      getServers: () => {
+        const maps = serverManager.getMaps();
+        return Array.from(maps.servers.values());
+      },
+      getServerTools: async (serverId: string) => {
+        const tools = await serverManager.listServerTools(serverId);
+        return tools.map((t) => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema,
+        }));
+      },
+      callTool: async (serverName, toolName, args) => {
+        const maps = serverManager.getMaps();
+        const serverId = maps.serverNameToIdMap.get(serverName);
+        if (!serverId) {
+          throw new Error(`Server not found: ${serverName}`);
+        }
+        const client = maps.clients.get(serverId);
+        if (!client) {
+          throw new Error(`Server not connected: ${serverName}`);
+        }
+        return await client.callTool(
+          { name: toolName, arguments: args },
+          undefined,
+          { timeout: 60 * 60 * 1000, resetTimeoutOnProgress: true },
+        );
+      },
+    };
+    this.entryMCPServer = new EntryMCPServer(entryDeps);
+
     this.configureMiddleware();
     this.configureRoutes();
   }
@@ -169,11 +208,37 @@ export class MCPHttpServer {
 
   /**
    * Configure direct MCP route without versioning
+   * 使用 EntryMCPServer，只暴露 list_mcp_tools 和 call_mcp_tool 两个工具
    */
   private configureMcpRoute(): void {
-    // POST /mcp - Handle MCP requests (direct route without versioning)
+    // POST /mcp - Handle MCP requests using EntryMCPServer
     this.app.post("/mcp", async (req, res) => {
-      // オリジナルのリクエストボディをコピー
+      const modifiedBody = { ...req.body };
+
+      try {
+        // 确保 EntryMCPServer 已初始化
+        await this.entryMCPServer.waitForInit();
+        // 使用 EntryMCPServer 处理请求
+        await this.entryMCPServer
+          .getTransport()
+          .handleRequest(req, res, modifiedBody);
+      } catch (error) {
+        console.error("Error handling MCP request:", error);
+        if (!res.headersSent) {
+          res.status(500).json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32603,
+              message: "Internal server error",
+            },
+            id: null,
+          });
+        }
+      }
+    });
+
+    // POST /mcp/aggregator - 原始聚合器端点（暴露所有工具，可选）
+    this.app.post("/mcp/aggregator", async (req, res) => {
       const modifiedBody = { ...req.body };
 
       try {
@@ -201,15 +266,13 @@ export class MCPHttpServer {
           return;
         }
 
-        // Append metadata for downstream handlers
         const token = req.headers["authorization"];
         this.attachRequestMetadata(modifiedBody, token, projectFilter);
-        // For local workspaces, use local aggregator
         await this.aggregatorServer
           .getTransport()
           .handleRequest(req, res, modifiedBody);
       } catch (error) {
-        console.error("Error handling MCP request:", error);
+        console.error("Error handling aggregator MCP request:", error);
         if (!res.headersSent) {
           res.status(500).json({
             jsonrpc: "2.0",
@@ -423,5 +486,38 @@ export class MCPHttpServer {
         resolve();
       });
     });
+  }
+
+  /**
+   * Get the HTTP server port
+   */
+  public getPort(): number {
+    return this.port;
+  }
+
+  /**
+   * Check if server is running
+   */
+  public isRunning(): boolean {
+    return this.server !== null;
+  }
+
+  /**
+   * Get server info for display
+   */
+  public getServerInfo(): {
+    port: number;
+    isRunning: boolean;
+    endpoints: { path: string; description: string }[];
+  } {
+    return {
+      port: this.port,
+      isRunning: this.server !== null,
+      endpoints: [
+        { path: "/mcp", description: "Entry MCP (list_mcp_tools, call_mcp_tool)" },
+        { path: "/mcp/aggregator", description: "Aggregator MCP (all tools)" },
+        { path: "/mcp/sse", description: "SSE connection" },
+      ],
+    };
   }
 }

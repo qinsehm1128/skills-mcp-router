@@ -7,6 +7,7 @@ interface ServerEditingState {
 
   // Edited values
   editedName: string;
+  editedDescription: string;
   editedCommand: string;
   editedArgs: string[];
   editedBearerToken: string;
@@ -18,6 +19,7 @@ interface ServerEditingState {
   setIsAdvancedEditing: (isEditing: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
   setEditedName: (name: string) => void;
+  setEditedDescription: (description: string) => void;
   setEditedCommand: (command: string) => void;
   setEditedArgs: (args: string[]) => void;
   setEditedBearerToken: (token: string) => void;
@@ -41,6 +43,7 @@ interface ServerEditingState {
   // Initialize editing state from server
   initializeFromServer: (server: {
     name?: string;
+    description?: string;
     command?: string;
     args?: string[];
     bearerToken?: string;
@@ -58,6 +61,7 @@ export const useServerEditingStore = create<ServerEditingState>((set) => ({
   isAdvancedEditing: false,
   isLoading: false,
   editedName: "",
+  editedDescription: "",
   editedCommand: "",
   editedArgs: [],
   editedBearerToken: "",
@@ -69,6 +73,7 @@ export const useServerEditingStore = create<ServerEditingState>((set) => ({
   setIsAdvancedEditing: (isAdvancedEditing) => set({ isAdvancedEditing }),
   setIsLoading: (isLoading) => set({ isLoading }),
   setEditedName: (editedName) => set({ editedName }),
+  setEditedDescription: (editedDescription) => set({ editedDescription }),
   setEditedCommand: (editedCommand) => set({ editedCommand }),
   setEditedArgs: (editedArgs) => set({ editedArgs }),
   setEditedBearerToken: (editedBearerToken) => set({ editedBearerToken }),
@@ -121,6 +126,7 @@ export const useServerEditingStore = create<ServerEditingState>((set) => ({
   initializeFromServer: (server) => {
     set({
       editedName: server.name || "",
+      editedDescription: server.description || "",
       editedCommand: server.command || "",
       editedArgs: server.args || [],
       editedBearerToken: server.bearerToken || "",
@@ -139,6 +145,7 @@ export const useServerEditingStore = create<ServerEditingState>((set) => ({
       isAdvancedEditing: false,
       isLoading: false,
       editedName: "",
+      editedDescription: "",
       editedCommand: "",
       editedArgs: [],
       editedBearerToken: "",

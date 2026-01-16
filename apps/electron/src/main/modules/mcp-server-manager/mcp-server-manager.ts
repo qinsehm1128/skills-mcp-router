@@ -12,6 +12,7 @@ import {
   substituteArgsParameters,
 } from "../mcp-apps-manager/mcp-apps-manager.service";
 import { getLogService } from "@/main/modules/mcp-logger/mcp-logger.service";
+import { getSkillsWatcher } from "@/main/modules/skills";
 
 /**
  * Core server lifecycle management
@@ -45,6 +46,11 @@ export class MCPServerManager {
 
       // Load servers from database
       await this.loadServersFromDatabase();
+
+      // Initialize Skills Watcher
+      const skillsWatcher = getSkillsWatcher();
+      skillsWatcher.setServerProvider(() => this.getServers());
+      skillsWatcher.initialize();
 
       console.log("[MCPServerManager] Initialization complete");
     } catch (error) {
@@ -171,6 +177,10 @@ export class MCPServerManager {
     const newServer = this.serverService.addServer(config);
     this.servers.set(newServer.id, newServer);
     this.updateServerNameMapping(newServer);
+
+    // Notify Skills Watcher
+    getSkillsWatcher().onServerAdded(newServer);
+
     return newServer;
   }
 
@@ -195,6 +205,9 @@ export class MCPServerManager {
     if (removed && server) {
       this.serverNameToIdMap.delete(server.name);
       this.servers.delete(id);
+
+      // Notify Skills Watcher
+      getSkillsWatcher().onServerRemoved(id);
     }
 
     return removed;
@@ -275,6 +288,9 @@ export class MCPServerManager {
       clientId: clientId || "unknownClient",
     });
 
+    // Notify Skills Watcher
+    getSkillsWatcher().onServerStarted(id);
+
     return true;
   }
 
@@ -322,6 +338,10 @@ export class MCPServerManager {
       client.close();
       this.clients.delete(id);
       server.status = "stopped";
+
+      // Notify Skills Watcher
+      getSkillsWatcher().onServerStopped(id);
+
       return true;
     } catch (error) {
       server.status = "error";
@@ -353,6 +373,9 @@ export class MCPServerManager {
       Object.assign(server, updatedServer, { status, logs });
       server.toolPermissions = server.toolPermissions || {};
       this.updateServerNameMapping(server);
+
+      // Notify Skills Watcher about relevant changes
+      getSkillsWatcher().onServerUpdated(id, config);
     }
 
     return updatedServer;

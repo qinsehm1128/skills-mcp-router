@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { usePlatformAPI } from "@/renderer/platform-api";
 import { Button } from "@mcp_router/ui";
@@ -59,7 +59,7 @@ const Row: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 // ---- Component -------------------------------------------------------------
 const Manual: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const platformAPI = usePlatformAPI();
   const { createServer, refreshServers } = useServerStore();
 
@@ -71,10 +71,12 @@ const Manual: React.FC = () => {
 
   // Manual Configuration State
   const [serverName, setServerName] = useState("");
+  const [serverDescription, setServerDescription] = useState("");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
   const [envVars, setEnvVars] = useState<EnvVariable[]>([]);
   const [isLoadingManual, setIsLoadingManual] = useState(false);
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     serverName?: string;
     command?: string;
@@ -83,9 +85,11 @@ const Manual: React.FC = () => {
 
   // Remote Server State
   const [remoteServerName, setRemoteServerName] = useState("");
+  const [remoteServerDescription, setRemoteServerDescription] = useState("");
   const [remoteServerUrl, setRemoteServerUrl] = useState("");
   const [bearerToken, setBearerToken] = useState("");
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
+  const [isGeneratingRemoteDesc, setIsGeneratingRemoteDesc] = useState(false);
   const [remoteServerType, setRemoteServerType] = useState<
     "remote" | "remote-streamable"
   >("remote");
@@ -94,12 +98,26 @@ const Manual: React.FC = () => {
     serverUrl?: string;
   }>({});
   const [autoStart, setAutoStart] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(false);
 
   // DXT Import State
   const [dxtFile, setDxtFile] = useState<File | null>(null);
   const [isLoadingDxt, setIsLoadingDxt] = useState(false);
   const [dxtError, setDxtError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if AI summary is enabled
+  useEffect(() => {
+    const checkAIEnabled = async () => {
+      try {
+        const enabled = await window.electronAPI.isAIEnabled();
+        setAiEnabled(enabled);
+      } catch (error) {
+        console.error("Failed to check AI status:", error);
+      }
+    };
+    checkAIEnabled();
+  }, []);
 
   const addEnvVar = () => {
     setEnvVars([...envVars, { key: "", value: "" }]);
@@ -249,6 +267,7 @@ const Manual: React.FC = () => {
 
   const resetForm = () => {
     setServerName("");
+    setServerDescription("");
     setCommand("");
     setArgs("");
     setEnvVars([]);
@@ -257,6 +276,7 @@ const Manual: React.FC = () => {
 
   const resetRemoteForm = () => {
     setRemoteServerName("");
+    setRemoteServerDescription("");
     setRemoteServerUrl("");
     setBearerToken("");
     setRemoteValidationErrors({});
@@ -333,6 +353,7 @@ const Manual: React.FC = () => {
       const serverConfig: MCPServerConfig = {
         id: uuidv4(),
         name: serverName,
+        description: serverDescription || undefined,
         command,
         args: argsArray,
         env: envObject,
@@ -359,6 +380,7 @@ const Manual: React.FC = () => {
       const config: MCPServerConfig = {
         id: uuidv4(),
         name: remoteServerName,
+        description: remoteServerDescription || undefined,
         env: {},
         serverType: remoteServerType,
         remoteUrl: remoteServerUrl,
@@ -619,6 +641,73 @@ const Manual: React.FC = () => {
               )}
             </Row>
 
+            {/* Description Field */}
+            <Row>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="serverDescription" className="text-right">
+                  {t("mcpDescription.label")}
+                </Label>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="serverDescription"
+                  value={serverDescription}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 50) {
+                      setServerDescription(e.target.value);
+                    }
+                  }}
+                  placeholder={t("mcpDescription.placeholder")}
+                  maxLength={50}
+                  className="flex-1"
+                />
+                {aiEnabled && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!serverName.trim()) {
+                        toast.error(t("manual.errors.nameRequired"));
+                        return;
+                      }
+                      setIsGeneratingDesc(true);
+                      try {
+                        const currentLang = i18n.language?.split("-")[0] || "en";
+                        const result =
+                          await window.electronAPI.generateAISummary({
+                            serverName,
+                            tools: [],
+                            language: currentLang,
+                          });
+                        if (result.success && result.description) {
+                          setServerDescription(result.description);
+                        } else {
+                          toast.error(
+                            result.error || t("aiConfig.generateFailed"),
+                          );
+                        }
+                      } catch {
+                        toast.error(t("aiConfig.generateFailed"));
+                      } finally {
+                        setIsGeneratingDesc(false);
+                      }
+                    }}
+                    disabled={isGeneratingDesc || !serverName.trim()}
+                    className="whitespace-nowrap"
+                  >
+                    {isGeneratingDesc ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      t("mcpDescription.generateWithAI")
+                    )}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("mcpDescription.charCount", { count: serverDescription.length })}
+              </p>
+            </Row>
+
             <Row>
               <div className="flex items-center gap-2">
                 <Label htmlFor="command" className="text-right">
@@ -794,6 +883,75 @@ const Manual: React.FC = () => {
                   {remoteValidationErrors.serverName}
                 </p>
               )}
+            </Row>
+
+            {/* Description Field for Remote */}
+            <Row>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="remoteServerDescription" className="text-right">
+                  {t("mcpDescription.label")}
+                </Label>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="remoteServerDescription"
+                  value={remoteServerDescription}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 50) {
+                      setRemoteServerDescription(e.target.value);
+                    }
+                  }}
+                  placeholder={t("mcpDescription.placeholder")}
+                  maxLength={50}
+                  className="flex-1"
+                />
+                {aiEnabled && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!remoteServerName.trim()) {
+                        toast.error(t("manual.errors.nameRequired"));
+                        return;
+                      }
+                      setIsGeneratingRemoteDesc(true);
+                      try {
+                        const currentLang = i18n.language?.split("-")[0] || "en";
+                        const result =
+                          await window.electronAPI.generateAISummary({
+                            serverName: remoteServerName,
+                            tools: [],
+                            language: currentLang,
+                          });
+                        if (result.success && result.description) {
+                          setRemoteServerDescription(result.description);
+                        } else {
+                          toast.error(
+                            result.error || t("aiConfig.generateFailed"),
+                          );
+                        }
+                      } catch {
+                        toast.error(t("aiConfig.generateFailed"));
+                      } finally {
+                        setIsGeneratingRemoteDesc(false);
+                      }
+                    }}
+                    disabled={
+                      isGeneratingRemoteDesc || !remoteServerName.trim()
+                    }
+                    className="whitespace-nowrap"
+                  >
+                    {isGeneratingRemoteDesc ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      t("mcpDescription.generateWithAI")
+                    )}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("mcpDescription.charCount", { count: remoteServerDescription.length })}
+              </p>
             </Row>
 
             <Row>

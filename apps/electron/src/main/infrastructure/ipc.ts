@@ -9,6 +9,9 @@ import { setupWorkspaceHandlers } from "../modules/workspace/workspace.ipc";
 import { setupWorkflowHandlers } from "../modules/workflow/workflow.ipc";
 import { setupHookHandlers } from "../modules/workflow/hook.ipc";
 import { setupProjectHandlers } from "../modules/projects/projects.ipc";
+import { setupSkillsHandlers } from "../modules/skills";
+import { setupEntryMCPHandlers } from "../modules/entry-mcp";
+import { setupAISummaryHandlers } from "../modules/ai-summary";
 import type { MCPServerManager } from "@/main/modules/mcp-server-manager/mcp-server-manager";
 
 /**
@@ -50,4 +53,13 @@ export function setupIpcHandlers(deps: {
 
   // Projects関連
   setupProjectHandlers({ getServerManager: deps.getServerManager });
+
+  // Skills関連
+  setupSkillsHandlers();
+
+  // Entry MCP関連
+  setupEntryMCPHandlers();
+
+  // AI Summary関連
+  setupAISummaryHandlers();
 }
