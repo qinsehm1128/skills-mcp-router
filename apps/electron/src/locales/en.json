@@ -222,8 +222,10 @@
     "analyticsDescription": "Send anonymous usage data to help improve the app",
     "autoUpdate": "Enable automatic updates",
     "autoUpdateDescription": "Automatically download and install app updates",
-    "showWindowOnStartup": "Show main window at system startup",
-    "showWindowOnStartupDescription": "Display MCP Router when your computer boots. Disable to start in the background.",
+    "openAtLogin": "Start at login",
+    "openAtLoginDescription": "Automatically start MCP Router when you log in",
+    "showWindowOnStartup": "Show window on startup",
+    "showWindowOnStartupDescription": "Show main window when auto-started. Disable to run in background.",
     "httpServer": "MCP HTTP Server",
     "httpServerDescription": "HTTP server for external MCP client connections",
     "httpServerPort": "Port",
@@ -232,7 +234,11 @@
     "httpServerStopped": "Stopped",
     "httpServerEndpoints": "Available Endpoints",
     "httpServerUrl": "Server URL",
-    "httpServerCopyUrl": "Copy URL"
+    "httpServerCopyUrl": "Copy URL",
+    "mcpEndpointMode": "MCP Endpoint Mode",
+    "mcpEndpointModeDescription": "Select which MCP endpoint to use for /mcp path",
+    "mcpEndpointModeEntry": "Entry MCP (Routing)",
+    "mcpEndpointModeAggregator": "Aggregator (Direct)"
   },
   "mcpApps": {
     "title": "MCP App Integrations",

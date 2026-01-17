@@ -16,7 +16,7 @@ import { useThemeStore } from "@/renderer/stores";
 import { IconBrandDiscord, IconCheck, IconX } from "@tabler/icons-react";
 import { electronPlatformAPI as platformAPI } from "../../platform-api/electron-platform-api";
 import { postHogService } from "../../services/posthog-service";
-import type { AIConfig } from "@mcp_router/shared";
+import type { AIConfig, MCPEndpointMode } from "@mcp_router/shared";
 import { DEFAULT_AI_CONFIG } from "@mcp_router/shared";
 
 const Settings: React.FC = () => {
@@ -25,7 +25,9 @@ const Settings: React.FC = () => {
     useState<boolean>(true);
   const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(true);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState<boolean>(true);
+  const [openAtLogin, setOpenAtLogin] = useState<boolean>(false);
   const [showWindowOnStartup, setShowWindowOnStartup] = useState<boolean>(true);
+  const [mcpEndpointMode, setMcpEndpointMode] = useState<MCPEndpointMode>("entry");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // AI Configuration State
@@ -41,6 +43,7 @@ const Settings: React.FC = () => {
   const [httpServerInfo, setHttpServerInfo] = useState<{
     port: number;
     isRunning: boolean;
+    endpointMode?: MCPEndpointMode;
     endpoints: { path: string; description: string }[];
   } | null>(null);
 
@@ -69,7 +72,9 @@ const Settings: React.FC = () => {
         setLoadExternalMCPConfigs(settings.loadExternalMCPConfigs ?? true);
         setAnalyticsEnabled(settings.analyticsEnabled ?? true);
         setAutoUpdateEnabled(settings.autoUpdateEnabled ?? true);
+        setOpenAtLogin(settings.openAtLogin ?? false);
         setShowWindowOnStartup(settings.showWindowOnStartup ?? true);
+        setMcpEndpointMode(settings.mcpEndpointMode ?? "entry");
       } catch {
         // Ignore error and use default value
         console.log("Failed to load settings, using defaults");
@@ -169,6 +174,26 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Handle open at login toggle
+  const handleOpenAtLoginToggle = async (checked: boolean) => {
+    setOpenAtLogin(checked);
+    setIsSavingSettings(true);
+
+    try {
+      const currentSettings = await platformAPI.settings.get();
+      await platformAPI.settings.save({
+        ...currentSettings,
+        openAtLogin: checked,
+      });
+    } catch (error) {
+      console.error("Failed to save open at login settings:", error);
+      // Revert on error
+      setOpenAtLogin(!checked);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   // Handle startup visibility toggle
   const handleStartupVisibilityToggle = async (checked: boolean) => {
     setShowWindowOnStartup(checked);
@@ -184,6 +209,31 @@ const Settings: React.FC = () => {
       console.error("Failed to save startup visibility settings:", error);
       // Revert on error
       setShowWindowOnStartup(!checked);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Handle MCP endpoint mode change
+  const handleMcpEndpointModeChange = async (mode: MCPEndpointMode) => {
+    const previousMode = mcpEndpointMode;
+    setMcpEndpointMode(mode);
+    setIsSavingSettings(true);
+
+    try {
+      const currentSettings = await platformAPI.settings.get();
+      await platformAPI.settings.save({
+        ...currentSettings,
+        mcpEndpointMode: mode,
+      });
+      // Refresh HTTP server info to show updated endpoint description
+      const info = await window.electronAPI.getHttpServerInfo();
+      if (info) {
+        setHttpServerInfo(info);
+      }
+    } catch (error) {
+      console.error("Failed to save MCP endpoint mode:", error);
+      setMcpEndpointMode(previousMode);
     } finally {
       setIsSavingSettings(false);
     }
@@ -302,6 +352,31 @@ const Settings: React.FC = () => {
                   ? t("settings.httpServerRunning")
                   : t("settings.httpServerStopped")}
               </Badge>
+            </div>
+
+            {/* Endpoint Mode */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("settings.mcpEndpointMode")}</label>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.mcpEndpointModeDescription")}
+              </p>
+              <Select
+                value={mcpEndpointMode}
+                onValueChange={(value: MCPEndpointMode) => handleMcpEndpointModeChange(value)}
+                disabled={isSavingSettings}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entry">
+                    {t("settings.mcpEndpointModeEntry")}
+                  </SelectItem>
+                  <SelectItem value="aggregator">
+                    {t("settings.mcpEndpointModeAggregator")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Server URL */}
@@ -539,6 +614,21 @@ const Settings: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <label className="text-sm font-medium">
+                {t("settings.openAtLogin")}
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.openAtLoginDescription")}
+              </p>
+            </div>
+            <Switch
+              checked={openAtLogin}
+              onCheckedChange={handleOpenAtLoginToggle}
+              disabled={isSavingSettings}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <label className="text-sm font-medium">
                 {t("settings.showWindowOnStartup")}
               </label>
               <p className="text-xs text-muted-foreground">
@@ -548,7 +638,7 @@ const Settings: React.FC = () => {
             <Switch
               checked={showWindowOnStartup}
               onCheckedChange={handleStartupVisibilityToggle}
-              disabled={isSavingSettings}
+              disabled={isSavingSettings || !openAtLogin}
             />
           </div>
         </CardContent>

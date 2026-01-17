@@ -1,6 +1,11 @@
 import type { Theme } from "./ui";
 
 /**
+ * MCP 端点模式
+ */
+export type MCPEndpointMode = "entry" | "aggregator";
+
+/**
  * アプリケーション設定のインターフェース
  */
 export interface AppSettings {
@@ -28,6 +33,12 @@ export interface AppSettings {
   autoUpdateEnabled?: boolean;
 
   /**
+   * OS起動時にアプリを自動起動するか
+   * デフォルト: false
+   */
+  openAtLogin?: boolean;
+
+  /**
    * OS起動時にアプリのメインウィンドウを表示するか
    * デフォルト: true
    */
@@ -38,6 +49,14 @@ export interface AppSettings {
    * デフォルト: "system"
    */
   theme?: Theme;
+
+  /**
+   * MCP 端点模式
+   * entry: 只暴露 list_mcp_tools 和 call_mcp_tool
+   * aggregator: 暴露所有工具
+   * デフォルト: "entry"
+   */
+  mcpEndpointMode?: MCPEndpointMode;
 }
 
 /**
@@ -48,6 +67,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   loadExternalMCPConfigs: true,
   analyticsEnabled: true,
   autoUpdateEnabled: true,
+  openAtLogin: false,
   showWindowOnStartup: true,
   theme: "system",
+  mcpEndpointMode: "entry",
 };

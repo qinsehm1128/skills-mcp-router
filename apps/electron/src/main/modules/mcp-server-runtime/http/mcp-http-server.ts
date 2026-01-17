@@ -7,11 +7,12 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse";
 import { getPlatformAPIManager } from "../../workspace/platform-api-manager";
 import { TokenValidator } from "../token-validator";
 import { ProjectRepository } from "../../projects/projects.repository";
-import { PROJECT_HEADER, UNASSIGNED_PROJECT_ID } from "@mcp_router/shared";
+import { PROJECT_HEADER, UNASSIGNED_PROJECT_ID, MCPEndpointMode } from "@mcp_router/shared";
 import {
   EntryMCPServer,
   type EntryMCPServerDeps,
 } from "../../entry-mcp/entry-mcp.server";
+import { getSettingsService } from "../../settings/settings.service";
 
 /**
  * HTTP server that exposes MCP functionality through REST endpoints
@@ -208,20 +209,55 @@ export class MCPHttpServer {
 
   /**
    * Configure direct MCP route without versioning
-   * 使用 EntryMCPServer，只暴露 list_mcp_tools 和 call_mcp_tool 两个工具
+   * 根据设置选择使用 EntryMCPServer 或 AggregatorServer
    */
   private configureMcpRoute(): void {
-    // POST /mcp - Handle MCP requests using EntryMCPServer
+    // POST /mcp - Handle MCP requests based on endpoint mode setting
     this.app.post("/mcp", async (req, res) => {
       const modifiedBody = { ...req.body };
 
       try {
-        // 确保 EntryMCPServer 已初始化
-        await this.entryMCPServer.waitForInit();
-        // 使用 EntryMCPServer 处理请求
-        await this.entryMCPServer
-          .getTransport()
-          .handleRequest(req, res, modifiedBody);
+        // 获取当前端点模式设置
+        const settings = getSettingsService().getSettings();
+        const endpointMode: MCPEndpointMode = settings.mcpEndpointMode || "entry";
+
+        if (endpointMode === "aggregator") {
+          // 使用 Aggregator 模式 - 暴露所有工具
+          let projectFilter: string | null;
+          try {
+            const resolution = this.resolveProjectFilter(req, {
+              skipValidation: false,
+            });
+            projectFilter = resolution.projectId;
+          } catch (error: any) {
+            if (!res.headersSent) {
+              res.status(error?.status || 400).json({
+                jsonrpc: "2.0",
+                error: {
+                  code: -32602,
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : "Invalid project header",
+                },
+                id: modifiedBody.id || null,
+              });
+            }
+            return;
+          }
+
+          const token = req.headers["authorization"];
+          this.attachRequestMetadata(modifiedBody, token, projectFilter);
+          await this.aggregatorServer
+            .getTransport()
+            .handleRequest(req, res, modifiedBody);
+        } else {
+          // 使用 Entry 模式 - 只暴露 list_mcp_tools 和 call_mcp_tool
+          await this.entryMCPServer.waitForInit();
+          await this.entryMCPServer
+            .getTransport()
+            .handleRequest(req, res, modifiedBody);
+        }
       } catch (error) {
         console.error("Error handling MCP request:", error);
         if (!res.headersSent) {
@@ -237,7 +273,7 @@ export class MCPHttpServer {
       }
     });
 
-    // POST /mcp/aggregator - 原始聚合器端点（暴露所有工具，可选）
+    // POST /mcp/aggregator - 聚合器端点（始终暴露所有工具）
     this.app.post("/mcp/aggregator", async (req, res) => {
       const modifiedBody = { ...req.body };
 
@@ -495,13 +531,23 @@ export class MCPHttpServer {
   public getServerInfo(): {
     port: number;
     isRunning: boolean;
+    endpointMode: MCPEndpointMode;
     endpoints: { path: string; description: string }[];
   } {
+    const settings = getSettingsService().getSettings();
+    const endpointMode: MCPEndpointMode = settings.mcpEndpointMode || "entry";
+    
     return {
       port: this.port,
       isRunning: this.server !== null,
+      endpointMode,
       endpoints: [
-        { path: "/mcp", description: "Entry MCP (list_mcp_tools, call_mcp_tool)" },
+        { 
+          path: "/mcp", 
+          description: endpointMode === "entry" 
+            ? "Entry MCP (list_mcp_tools, call_mcp_tool)" 
+            : "Aggregator MCP (all tools)"
+        },
         { path: "/mcp/aggregator", description: "Aggregator MCP (all tools)" },
         { path: "/mcp/sse", description: "SSE connection" },
       ],

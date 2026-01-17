@@ -58,7 +58,7 @@ export class SettingsService extends SingletonService<
     try {
       const result = SettingsRepository.getInstance().saveSettings(settings);
       if (result) {
-        applyLoginItemSettings(settings.showWindowOnStartup ?? true);
+        applyLoginItemSettings(settings.openAtLogin ?? false, settings.showWindowOnStartup ?? true);
         applyThemeSettings(settings.theme);
       }
       return result;
@@ -76,10 +76,16 @@ export function getSettingsService(): SettingsService {
 }
 
 /**
- * OS起動時のウィンドウ表示設定に応じてログイン項目設定を更新
+ * OS起動時の自動起動設定を更新
  */
-export function applyLoginItemSettings(showWindowOnStartup: boolean): void {
+export function applyLoginItemSettings(openAtLogin: boolean, showWindowOnStartup: boolean): void {
   try {
+    if (!openAtLogin) {
+      // 自動起動を無効化
+      app.setLoginItemSettings({ openAtLogin: false });
+      return;
+    }
+
     const loginItemOptions: Electron.Settings = {
       openAtLogin: true,
     };

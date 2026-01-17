@@ -223,8 +223,10 @@
     "analyticsDescription": "アプリの改善のため、匿名の使用状況データを送信します",
     "autoUpdate": "自動アップデート",
     "autoUpdateDescription": "アプリのアップデートを自動でダウンロード・インストールします",
-    "showWindowOnStartup": "OS起動時にウィンドウを表示",
-    "showWindowOnStartupDescription": "コンピューター起動時にMCP Routerのウィンドウを表示します。無効にするとバックグラウンドで起動します。",
+    "openAtLogin": "ログイン時に起動",
+    "openAtLoginDescription": "システム起動時にMCP Routerを自動的に起動します",
+    "showWindowOnStartup": "起動時にウィンドウを表示",
+    "showWindowOnStartupDescription": "自動起動時にメインウィンドウを表示します。無効にするとバックグラウンドで起動します。",
     "httpServer": "MCP HTTPサーバー",
     "httpServerDescription": "外部MCPクライアント接続用のHTTPサーバー",
     "httpServerPort": "ポート",
@@ -233,7 +235,11 @@
     "httpServerStopped": "停止",
     "httpServerEndpoints": "利用可能なエンドポイント",
     "httpServerUrl": "サーバーURL",
-    "httpServerCopyUrl": "URLをコピー"
+    "httpServerCopyUrl": "URLをコピー",
+    "mcpEndpointMode": "MCPエンドポイントモード",
+    "mcpEndpointModeDescription": "/mcpパスで使用するMCPエンドポイントを選択",
+    "mcpEndpointModeEntry": "Entry MCP（ルーティング）",
+    "mcpEndpointModeAggregator": "Aggregator（直接）"
   },
   "mcpApps": {
     "title": "MCPアプリ連携",
