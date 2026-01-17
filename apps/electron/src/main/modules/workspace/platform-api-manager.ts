@@ -193,26 +193,6 @@ export class PlatformAPIManager {
   }
 
   /**
-   * 現在のワークスペースがリモートかどうか
-   */
-  isRemoteWorkspace(): boolean {
-    return this.currentWorkspace?.type === "remote";
-  }
-
-  /**
-   * リモートAPIのベースURLを取得
-   */
-  getRemoteApiUrl(): string | null {
-    if (
-      this.isRemoteWorkspace() &&
-      this.currentWorkspace?.remoteConfig?.apiUrl
-    ) {
-      return this.currentWorkspace.remoteConfig.apiUrl;
-    }
-    return null;
-  }
-
-  /**
    * 現在のワークスペースのデータベースを取得
    */
   getCurrentDatabase(): SqliteManager | null {

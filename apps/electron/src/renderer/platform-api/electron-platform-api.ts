@@ -4,7 +4,6 @@
 
 import type { PlatformAPI } from "@mcp_router/shared";
 import type {
-  AuthAPI,
   ServerAPI,
   AppAPI,
   PackageAPI,
@@ -18,7 +17,6 @@ import type {
 
 // Electron implementation of the Platform API
 class ElectronPlatformAPI implements PlatformAPI {
-  auth: AuthAPI;
   servers: ServerAPI;
   apps: AppAPI;
   packages: PackageAPI;
@@ -29,29 +27,6 @@ class ElectronPlatformAPI implements PlatformAPI {
   projects: ProjectsAPI;
 
   constructor() {
-    // Initialize auth domain
-    this.auth = {
-      signIn: (provider) => window.electronAPI.login(provider),
-      signOut: () => window.electronAPI.logout(),
-      getStatus: (forceRefresh) =>
-        window.electronAPI.getAuthStatus(forceRefresh).then((status) => ({
-          authenticated: status.authenticated ?? false,
-          userId: status.userId,
-          user: status.user,
-          token: status.token,
-        })),
-      handleToken: (token, state) =>
-        window.electronAPI.handleAuthToken(token, state),
-      onChange: (callback) =>
-        window.electronAPI.onAuthStatusChanged((status) =>
-          callback({
-            authenticated: status.loggedIn,
-            userId: status.userId,
-            user: status.user,
-          }),
-        ),
-    };
-
     // Initialize servers domain
     this.servers = {
       list: () => window.electronAPI.listMcpServers(),

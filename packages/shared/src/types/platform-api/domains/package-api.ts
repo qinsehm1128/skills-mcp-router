@@ -3,7 +3,8 @@
  */
 
 import type { ServerPackageUpdates } from "../../mcp-app-types";
-import type { Unsubscribe } from "./auth-api";
+
+export type Unsubscribe = () => void;
 
 type PackageManager = "pnpm" | "uvx";
 type Platform = "darwin" | "win32" | "linux";

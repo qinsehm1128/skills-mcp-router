@@ -6,11 +6,9 @@ import {
   IconActivity,
   IconDeviceDesktop,
   IconDownload,
-  IconWebhook,
   IconFileDescription,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { useWorkspaceStore } from "@/renderer/stores";
 import { usePlatformAPI } from "@/renderer/platform-api";
 // @ts-expect-error: Webpack file-loader provides typing for image assets at runtime
 import iconImage from "../../../public/images/icon/icon.png";
@@ -39,8 +37,6 @@ import { toast } from "sonner";
 const SidebarComponent: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
-  const currentWorkspace = useWorkspaceStore((state) => state.currentWorkspace);
-  const isRemoteWorkspace = currentWorkspace?.type === "remote";
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
@@ -151,66 +147,44 @@ const SidebarComponent: React.FC = () => {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
 
-                  {/*{!isRemoteWorkspace && (*/}
-                  {/*  <SidebarMenuItem>*/}
-                  {/*    <SidebarMenuButton*/}
-                  {/*      asChild*/}
-                  {/*      tooltip={t("hooks.title")}*/}
-                  {/*      isActive={location.pathname === "/hooks"}*/}
-                  {/*    >*/}
-                  {/*      <Link*/}
-                  {/*        to="/hooks"*/}
-                  {/*        className="flex items-center gap-3 py-5 px-3 w-full"*/}
-                  {/*      >*/}
-                  {/*        <IconWebhook className="h-6 w-6" />*/}
-                  {/*        <span className="text-base">{t("hooks.title")}</span>*/}
-                  {/*      </Link>*/}
-                  {/*    </SidebarMenuButton>*/}
-                  {/*  </SidebarMenuItem>*/}
-                  {/*)}*/}
-
-                  {!isRemoteWorkspace && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        asChild
-                        tooltip={t("serverDetails.requestLogs")}
-                        isActive={location.pathname === "/logs"}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={t("serverDetails.requestLogs")}
+                      isActive={location.pathname === "/logs"}
+                    >
+                      <Link
+                        to="/logs"
+                        className="flex items-center gap-3 py-5 px-3 w-full"
                       >
-                        <Link
-                          to="/logs"
-                          className="flex items-center gap-3 py-5 px-3 w-full"
-                        >
-                          <IconActivity className="h-6 w-6" />
-                          <span className="text-base">
-                            {t("serverDetails.requestLogs")}
-                          </span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
+                        <IconActivity className="h-6 w-6" />
+                        <span className="text-base">
+                          {t("serverDetails.requestLogs")}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarGroupContent>
               </CollapsibleContent>
             </SidebarGroup>
           </Collapsible>
 
           {/* Skills - Independent section */}
-          {!isRemoteWorkspace && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip={t("skills.title")}
-                isActive={location.pathname === "/skills"}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip={t("skills.title")}
+              isActive={location.pathname === "/skills"}
+            >
+              <Link
+                to="/skills"
+                className="flex items-center gap-3 py-5 px-3 w-full"
               >
-                <Link
-                  to="/skills"
-                  className="flex items-center gap-3 py-5 px-3 w-full"
-                >
-                  <IconFileDescription className="h-6 w-6" />
-                  <span className="text-base">{t("skills.title")}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+                <IconFileDescription className="h-6 w-6" />
+                <span className="text-base">{t("skills.title")}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
 

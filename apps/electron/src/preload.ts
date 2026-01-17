@@ -7,21 +7,6 @@ import type { CreateServerInput, TokenServerAccess } from "@mcp_router/shared";
 // Consolidate everything into one contextBridge call
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  // Authentication
-  login: (idp?: string) => ipcRenderer.invoke("auth:login", idp),
-  logout: () => ipcRenderer.invoke("auth:logout"),
-  getAuthStatus: (forceRefresh?: boolean) =>
-    ipcRenderer.invoke("auth:status", forceRefresh),
-  handleAuthToken: (token: string, state?: string) =>
-    ipcRenderer.invoke("auth:handle-token", token, state),
-  onAuthStatusChanged: (callback: (status: any) => void) => {
-    const listener = (_: any, status: any) => callback(status);
-    ipcRenderer.on("auth:status-changed", listener);
-    return () => {
-      ipcRenderer.removeListener("auth:status-changed", listener);
-    };
-  },
-
   // MCP Server Management
   listMcpServers: () => ipcRenderer.invoke("mcp:list"),
   startMcpServer: (id: string) => ipcRenderer.invoke("mcp:start", id),

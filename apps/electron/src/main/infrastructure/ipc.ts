@@ -1,4 +1,3 @@
-import { setupAuthHandlers } from "../modules/auth/auth.ipc";
 import { setupMcpServerHandlers } from "../modules/mcp-server-manager/mcp-server-manager.ipc";
 import { setupLogHandlers } from "../modules/mcp-logger/mcp-logger.ipc";
 import { setupSettingsHandlers } from "../modules/settings/settings.ipc";
@@ -21,9 +20,6 @@ import type { MCPServerManager } from "@/main/modules/mcp-server-manager/mcp-ser
 export function setupIpcHandlers(deps: {
   getServerManager: () => MCPServerManager;
 }): void {
-  // 認証関連
-  setupAuthHandlers();
-
   // MCPサーバー関連
   setupMcpServerHandlers(deps.getServerManager);
 

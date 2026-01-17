@@ -242,11 +242,10 @@ export class MCPHttpServer {
       const modifiedBody = { ...req.body };
 
       try {
-        const platformManager = getPlatformAPIManager();
         let projectFilter: string | null;
         try {
           const resolution = this.resolveProjectFilter(req, {
-            skipValidation: platformManager.isRemoteWorkspace(),
+            skipValidation: false,
           });
           projectFilter = resolution.projectId;
         } catch (error: any) {
@@ -306,12 +305,10 @@ export class MCPHttpServer {
         // ユニークなセッションIDを取得
         const sessionId = transport.sessionId;
 
-        // Check if current workspace is remote
-        const platformManager = getPlatformAPIManager();
         let projectFilter: string | null;
         try {
           const resolution = this.resolveProjectFilter(req, {
-            skipValidation: platformManager.isRemoteWorkspace(),
+            skipValidation: false,
           });
           projectFilter = resolution.projectId;
         } catch (error: any) {
@@ -338,18 +335,8 @@ export class MCPHttpServer {
           this.sseSessionProjects.delete(sessionId);
         });
 
-        if (platformManager.isRemoteWorkspace()) {
-          // For remote workspaces, we need to connect to remote aggregator
-          // Note: This requires implementing a remote aggregator SSE endpoint
-          // For now, we'll use the local aggregator but log a warning
-          console.warn(
-            "Remote aggregator SSE not yet implemented, using local aggregator",
-          );
-          await this.aggregatorServer.getAggregatorServer().connect(transport);
-        } else {
-          // For local workspaces, connect to local aggregator server
-          await this.aggregatorServer.getAggregatorServer().connect(transport);
-        }
+        // Connect to local aggregator server
+        await this.aggregatorServer.getAggregatorServer().connect(transport);
 
         // セッションID情報をクライアントに送信
         res.write(`data: ${JSON.stringify({ sessionId })}\n\n`);

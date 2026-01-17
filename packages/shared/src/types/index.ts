@@ -7,7 +7,6 @@ export * from "./settings-types";
 export * from "./token-types";
 export * from "./user-types";
 export * from "./workspace";
-export * from "./auth";
 export * from "./project-types";
 
 // Re-export organized domain types
@@ -15,11 +14,6 @@ export * from "./ui";
 export * from "./database";
 // Export platform-api types except LogEntry to avoid conflict
 export {
-  // Auth API
-  AuthAPI,
-  AuthStatus,
-  AuthProvider,
-  Unsubscribe,
   // Server API
   ServerAPI,
   ServerStatus,
@@ -28,6 +22,7 @@ export {
   AppAPI,
   // Package API
   PackageAPI,
+  Unsubscribe,
   // Settings API
   SettingsAPI,
   // Log API

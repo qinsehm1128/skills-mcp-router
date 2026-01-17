@@ -5,37 +5,20 @@
 export interface Workspace {
   id: string;
   name: string;
-  type: "local" | "remote";
+  type: "local";
   isActive: boolean;
   createdAt: Date;
   lastUsedAt: Date;
   localConfig?: {
     databasePath: string;
   };
-  remoteConfig?: {
-    apiUrl: string;
-    authToken?: string;
-  };
-  displayInfo?: {
-    avatarUrl?: string;
-    teamName?: string;
-  };
 }
 
 export interface WorkspaceCreateConfig {
   name: string;
-  type: "local" | "remote";
-  remoteConfig?: {
-    apiUrl: string;
-    authToken?: string;
-  };
+  type: "local";
 }
 
 export interface WorkspaceUpdateConfig {
   name?: string;
-  type?: "local" | "remote";
-  remoteConfig?: {
-    apiUrl?: string;
-    authToken?: string;
-  };
 }

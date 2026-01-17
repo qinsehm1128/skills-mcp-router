@@ -45,14 +45,4 @@ export function setupWorkspaceHandlers(): void {
   ipcMain.handle("workspace:current", async () => {
     return getWorkspaceService().getActiveWorkspace();
   });
-
-  // ワークスペース認証情報取得（復号化）
-  ipcMain.handle(
-    "workspace:get-credentials",
-    async (_, workspaceId: string) => {
-      const token =
-        await getWorkspaceService().getWorkspaceCredentials(workspaceId);
-      return { token };
-    },
-  );
 }

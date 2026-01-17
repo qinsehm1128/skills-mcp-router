@@ -1,6 +1,5 @@
 // Export all domain APIs
 export * from "./domains/app-api";
-export * from "./domains/auth-api";
 export * from "./domains/log-api";
 export * from "./domains/package-api";
 export * from "./domains/projects-api";

@@ -5,21 +5,6 @@ import type { Theme } from "./ui";
  */
 export interface AppSettings {
   /**
-   * ユーザーID
-   */
-  userId?: string;
-
-  /**
-   * 認証トークン
-   */
-  authToken?: string;
-
-  /**
-   * ログイン日時
-   */
-  loggedInAt?: string;
-
-  /**
    * パッケージマネージャーオーバーレイの表示回数
    */
   packageManagerOverlayDisplayCount?: number;
@@ -59,9 +44,6 @@ export interface AppSettings {
  * デフォルトのアプリケーション設定
  */
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  userId: "",
-  authToken: "",
-  loggedInAt: "",
   packageManagerOverlayDisplayCount: 0,
   loadExternalMCPConfigs: true,
   analyticsEnabled: true,

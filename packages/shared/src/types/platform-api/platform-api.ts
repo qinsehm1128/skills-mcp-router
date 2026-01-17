@@ -2,7 +2,6 @@
  * Platform API interface with consolidated domain structure
  */
 
-import { AuthAPI } from "./domains/auth-api";
 import { ServerAPI } from "./domains/server-api";
 import { AppAPI } from "./domains/app-api";
 import { PackageAPI } from "./domains/package-api";
@@ -17,9 +16,6 @@ import { ProjectsAPI } from "./domains/projects-api";
  * Consolidates related functionality into logical domains
  */
 export interface PlatformAPI {
-  // Authentication domain
-  auth: AuthAPI;
-
   // Server management domain
   servers: ServerAPI;
 

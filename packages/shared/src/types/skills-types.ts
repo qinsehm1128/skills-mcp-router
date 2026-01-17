@@ -85,17 +85,34 @@ export const DEFAULT_SKILLS_CONFIG: SkillsConfig = {
  */
 export const DEFAULT_SKILL_TEMPLATE = `---
 name: mcp-router-skills
-description: {{description}}
+description: Master registry of available MCP servers. Used to identify which server handles a specific domain of tasks.
 license: MIT
 metadata:
   version: "{{version}}"
-  generatedAt: "{{generatedAt}}"
+  updatedAt: "{{generatedAt}}"
   serverCount: {{serverCount}}
 ---
 
-# MCP Router Skills
+# MCP Server Registry
 
-This file lists all available MCP servers managed by MCP Router.
+This document lists the available **MCP Servers** managed by the Router.
 
-{{servers}}
+## 🧠 Routing Instructions
+
+You have access to a meta-tooling system. Do not hallucinate tool names. Follow this workflow:
+
+1. **Analyze** the user's request.
+2. **Match** the request to the most relevant **Server Name** from the list below based on its description.
+3. **Action**:
+   - Use \`get_server_tools(server_name)\` to retrieve available functions for that server.
+   - Then use \`call_tool(server_name, tool_name, ...)\` to execute the task.
+
+## 🌐 Available Servers
+
+{{#each servers}}
+### 🔹 \`{{name}}\`
+
+> **Capabilities**: {{description}}
+
+{{/each}}
 `;

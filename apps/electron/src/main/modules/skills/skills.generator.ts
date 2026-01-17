@@ -16,7 +16,7 @@ export class SkillsGenerator {
   }
 
   /**
-   * 生成服务器列表的Markdown内容
+   * 生成服务器列表的Markdown内容（用于简单 {{servers}} 占位符）
    */
   private generateServersMarkdown(servers: MCPServerSummary[]): string {
     const enabledServers = servers.filter((s) => s.enabled);
@@ -27,33 +27,36 @@ export class SkillsGenerator {
 
     let md = "";
     for (const server of enabledServers) {
-      md += `## ${server.name}\n\n`;
-      md += `${server.description || "No description available."}\n\n`;
-      if (server.toolCount !== undefined && server.toolCount > 0) {
-        md += `- **Tools**: ${server.toolCount}\n`;
-      }
-      md += "\n";
+      md += `### 🔹 \`${server.name}\`\n\n`;
+      md += `> **Capabilities**: ${server.description || "No description available."}\n\n`;
     }
 
     return md;
   }
 
   /**
-   * 生成总体描述
+   * 处理 {{#each servers}} 块语法
    */
-  private generateDescription(servers: MCPServerSummary[]): string {
-    const enabledServers = servers.filter((s) => s.enabled);
-    const serverCount = enabledServers.length;
-    const totalTools = enabledServers.reduce(
-      (sum, s) => sum + (s.toolCount || 0),
-      0,
-    );
+  private processEachBlock(template: string, servers: MCPServerSummary[]): string {
+    const eachRegex = /\{\{#each servers\}\}([\s\S]*?)\{\{\/each\}\}/g;
+    
+    return template.replace(eachRegex, (_, blockContent) => {
+      const enabledServers = servers.filter((s) => s.enabled);
+      
+      if (enabledServers.length === 0) {
+        return "No MCP servers configured.\n";
+      }
 
-    if (serverCount === 0) {
-      return "No MCP servers configured.";
-    }
-
-    return `Collection of ${serverCount} MCP servers with ${totalTools} tools for AI assistance.`;
+      return enabledServers.map(server => {
+        let content = blockContent;
+        content = content.replace(/\{\{name\}\}/g, server.name);
+        content = content.replace(/\{\{description\}\}/g, server.description || "No description available.");
+        if (server.toolCount !== undefined) {
+          content = content.replace(/\{\{toolCount\}\}/g, String(server.toolCount));
+        }
+        return content;
+      }).join("");
+    });
   }
 
   /**
@@ -64,15 +67,14 @@ export class SkillsGenerator {
 
     let result = template;
 
-    // 生成服务器列表
+    // 处理 {{#each servers}} 块语法
+    result = this.processEachBlock(result, content.servers);
+
+    // 生成服务器列表（用于简单 {{servers}} 占位符）
     const serversList = this.generateServersMarkdown(content.servers);
 
-    // 生成描述
-    const description = this.generateDescription(content.servers);
-
-    // 替换占位符
+    // 替换简单占位符
     result = result.replace(/\{\{servers\}\}/g, serversList);
-    result = result.replace(/\{\{description\}\}/g, description);
     result = result.replace(/\{\{generatedAt\}\}/g, content.generatedAt);
     result = result.replace(/\{\{version\}\}/g, content.version);
     result = result.replace(
@@ -110,9 +112,17 @@ export class SkillsGenerator {
       errors.push("Template must have closing YAML frontmatter (---)");
     }
 
-    // 检查必要的占位符
-    if (!template.includes("{{servers}}")) {
-      errors.push("Template must include {{servers}} placeholder");
+    // 检查必要的占位符（支持 {{servers}} 或 {{#each servers}}）
+    const hasServersPlaceholder = template.includes("{{servers}}");
+    const hasEachBlock = template.includes("{{#each servers}}");
+    
+    if (!hasServersPlaceholder && !hasEachBlock) {
+      errors.push("Template must include {{servers}} or {{#each servers}} block");
+    }
+
+    // 检查 each 块是否正确闭合
+    if (hasEachBlock && !template.includes("{{/each}}")) {
+      errors.push("{{#each servers}} block must be closed with {{/each}}");
     }
 
     return {

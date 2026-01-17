@@ -7,7 +7,6 @@ import {
   DropdownMenuTrigger,
   Avatar,
   AvatarFallback,
-  AvatarImage,
   Button,
 } from "@mcp_router/ui";
 import { Check, ChevronDown, Plus, Settings, Monitor } from "lucide-react";
@@ -68,15 +67,11 @@ export function WorkspaceSwitcher() {
             className="h-8 px-3 hover:bg-accent/50"
           >
             <Avatar className="h-6 w-6 mr-2">
-              {currentWorkspace?.displayInfo?.avatarUrl ? (
-                <AvatarImage src={currentWorkspace.displayInfo.avatarUrl} />
-              ) : (
-                <AvatarFallback className="text-xs">
-                  {currentWorkspace
-                    ? getWorkspaceInitials(currentWorkspace.name)
-                    : "?"}
-                </AvatarFallback>
-              )}
+              <AvatarFallback className="text-xs">
+                {currentWorkspace
+                  ? getWorkspaceInitials(currentWorkspace.name)
+                  : "?"}
+              </AvatarFallback>
             </Avatar>
             <span className="text-sm">
               {currentWorkspace?.name || t("workspace.selectWorkspace")}

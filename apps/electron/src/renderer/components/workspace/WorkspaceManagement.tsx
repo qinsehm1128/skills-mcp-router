@@ -8,7 +8,6 @@ import {
   Button,
   Avatar,
   AvatarFallback,
-  AvatarImage,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -129,13 +128,9 @@ const WorkspaceManagement: React.FC = () => {
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
-                      {workspace.displayInfo?.avatarUrl ? (
-                        <AvatarImage src={workspace.displayInfo.avatarUrl} />
-                      ) : (
-                        <AvatarFallback>
-                          {getWorkspaceInitials(workspace.name)}
-                        </AvatarFallback>
-                      )}
+                      <AvatarFallback>
+                        {getWorkspaceInitials(workspace.name)}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2">

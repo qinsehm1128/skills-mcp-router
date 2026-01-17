@@ -10,7 +10,7 @@ import { SidebarProvider } from "@mcp_router/ui";
 import McpAppsManager from "@/renderer/components/mcp/apps/McpAppsManager";
 import LogViewer from "@/renderer/components/mcp/log/LogViewer";
 import Settings from "./setting/Settings";
-import { useServerStore, useAuthStore, initializeStores } from "../stores";
+import { useServerStore, initializeStores } from "../stores";
 import { usePlatformAPI } from "@/renderer/platform-api";
 import { IconProgress } from "@tabler/icons-react";
 import { postHogService } from "../services/posthog-service";
@@ -27,8 +27,6 @@ const App: React.FC = () => {
   // Zustand stores
   const { refreshServers } = useServerStore();
 
-  const { checkAuthStatus, subscribeToAuthChanges } = useAuthStore();
-
   // Local state for loading and temporary UI states
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -39,14 +37,10 @@ const App: React.FC = () => {
         // Initialize all stores
         await initializeStores();
 
-        // Check authentication status
-        await checkAuthStatus();
-
         // Initialize PostHog after getting settings
         const settings = await platformAPI.settings.get();
         postHogService.initialize({
           analyticsEnabled: settings.analyticsEnabled ?? true,
-          userId: settings.userId,
         });
       } catch (error) {
         console.error("Failed to initialize app:", error);
@@ -56,26 +50,7 @@ const App: React.FC = () => {
     };
 
     initializeApp();
-  }, [checkAuthStatus, platformAPI]);
-
-  // Subscribe to authentication changes
-  useEffect(() => {
-    const unsubscribe = subscribeToAuthChanges();
-
-    // Also subscribe to auth changes for PostHog
-    const authUnsubscribe = platformAPI.auth.onChange(async (status) => {
-      const settings = await platformAPI.settings.get();
-      postHogService.updateConfig({
-        analyticsEnabled: settings.analyticsEnabled ?? true,
-        userId: status.authenticated ? status.userId : undefined,
-      });
-    });
-
-    return () => {
-      unsubscribe();
-      authUnsubscribe();
-    };
-  }, [subscribeToAuthChanges, platformAPI]);
+  }, [platformAPI]);
 
   // Subscribe to protocol URL events
   useEffect(() => {
@@ -93,15 +68,8 @@ const App: React.FC = () => {
     async (urlString: string) => {
       const url = new URL(urlString);
       try {
-        if (url.hostname === "auth") {
-          const token = url.searchParams.get("token");
-          const state = url.searchParams.get("state");
-          if (token && state) {
-            await platformAPI.auth.handleToken(token, state);
-            // Navigate to settings page
-            navigate("/settings");
-          }
-        }
+        // Handle other protocol URLs if needed
+        console.log("Protocol URL received:", url.hostname);
       } catch (error) {
         console.error("Failed to process protocol URL:", error);
       }
@@ -138,8 +106,6 @@ const App: React.FC = () => {
     return <LoadingIndicator />;
   }
 
-  // Login is now optional - user can access app without authentication
-
   return (
     <SidebarProvider defaultOpen={true} className="h-full">
       <Sonner />
@@ -150,7 +116,7 @@ const App: React.FC = () => {
           {/*<SidebarTrigger />*/}
 
           <Routes>
-            {/* Public routes - no authentication required */}
+            {/* Public routes */}
             <Route element={<PageLayout />}>
               <Route path="/" element={<Navigate to="/servers" replace />} />
               <Route path="/servers" element={<Home />} />

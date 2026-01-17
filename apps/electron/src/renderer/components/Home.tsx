@@ -30,7 +30,6 @@ import { toast } from "sonner";
 import {
   useServerStore,
   useWorkspaceStore,
-  useAuthStore,
   useViewPreferencesStore,
   useProjectStore,
   UNASSIGNED_PROJECT_ID,
@@ -42,7 +41,7 @@ import { ServerErrorModal } from "@/renderer/components/common/ServerErrorModal"
 import { ServerCardCompact } from "@/renderer/components/mcp/server/ServerCardCompact";
 import { Link } from "react-router-dom";
 import { Button } from "@mcp_router/ui";
-import { LoginScreen } from "@/renderer/components/auth/LoginScreen";
+
 import ServerDetailsAdvancedSheet from "@/renderer/components/mcp/server/server-details/ServerDetailsAdvancedSheet";
 import ServerSettingsModal from "@/renderer/components/mcp/server/ServerSettingsModal";
 import { useServerEditingStore } from "@/renderer/stores";
@@ -97,9 +96,8 @@ const Home: React.FC = () => {
     updateServerToolPermissions,
   } = useServerStore();
 
-  // Get workspace and auth state
+  // Get workspace state
   const { currentWorkspace } = useWorkspaceStore();
-  const { isAuthenticated, login } = useAuthStore();
   const { serverViewMode, setServerViewMode } = useViewPreferencesStore();
   const {
     projects,
@@ -241,11 +239,6 @@ const Home: React.FC = () => {
     },
     [deleteProjectInStore, listProjects, refreshServers],
   );
-
-  // Show login screen for remote workspaces if not authenticated
-  if (currentWorkspace?.type === "remote" && !isAuthenticated) {
-    return <LoginScreen onLogin={login} />;
-  }
 
   return (
     <div className="flex flex-col h-full">

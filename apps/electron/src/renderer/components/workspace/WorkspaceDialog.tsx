@@ -11,8 +11,6 @@ import {
   Label,
   Alert,
   AlertDescription,
-  RadioGroup,
-  RadioGroupItem,
 } from "@mcp_router/ui";
 import { useWorkspaceStore } from "@/renderer/stores/workspace-store";
 import { AlertCircle } from "lucide-react";
@@ -22,10 +20,6 @@ interface WorkspaceDialogProps {
   workspace?: {
     id: string;
     name: string;
-    type: "local" | "remote";
-    remoteConfig?: {
-      apiUrl?: string;
-    };
   };
   onClose: () => void;
 }
@@ -38,17 +32,13 @@ export function WorkspaceDialog({ workspace, onClose }: WorkspaceDialogProps) {
 
   const [formData, setFormData] = useState({
     name: workspace?.name || "",
-    type: workspace?.type || ("local" as "local" | "remote"),
-    apiUrl: workspace?.remoteConfig?.apiUrl || "",
   });
 
   const [validationErrors, setValidationErrors] = useState<{
     name?: string;
-    apiUrl?: string;
   }>({});
 
   useEffect(() => {
-    // エラーをクリア
     setError(null);
   }, [setError]);
 
@@ -57,14 +47,6 @@ export function WorkspaceDialog({ workspace, onClose }: WorkspaceDialogProps) {
 
     if (!formData.name.trim()) {
       errors.name = "Workspace name is required";
-    }
-
-    if (formData.type === "remote") {
-      if (!formData.apiUrl.trim()) {
-        errors.apiUrl = "API URL is required for remote workspaces";
-      } else if (!formData.apiUrl.match(/^https?:\/\/.+/)) {
-        errors.apiUrl = "Please enter a valid URL";
-      }
     }
 
     setValidationErrors(errors);
@@ -82,34 +64,21 @@ export function WorkspaceDialog({ workspace, onClose }: WorkspaceDialogProps) {
     setError(null);
 
     try {
-      const config: {
-        name: string;
-        type: "local" | "remote";
-        remoteConfig?: {
-          apiUrl: string;
-        };
-      } = {
+      const config = {
         name: formData.name,
-        type: formData.type,
+        type: "local" as const,
       };
 
-      if (formData.type === "remote") {
-        config.remoteConfig = {
-          apiUrl: formData.apiUrl,
-        };
-      }
-
       if (workspace) {
-        await updateWorkspace(workspace.id, config);
+        await updateWorkspace(workspace.id, { name: formData.name });
         onClose();
       } else {
         const newWorkspace = await createWorkspace(config);
         onClose();
-        // Switch to the newly created workspace
         await switchWorkspace(newWorkspace.id);
       }
     } catch {
-      // エラーは store で設定される
+      // Error is set in store
     } finally {
       setIsSubmitting(false);
     }
@@ -150,56 +119,6 @@ export function WorkspaceDialog({ workspace, onClose }: WorkspaceDialogProps) {
                 </p>
               )}
             </div>
-
-            {!workspace && (
-              <div className="space-y-2">
-                <Label>Workspace Type</Label>
-                <RadioGroup
-                  value={formData.type}
-                  onValueChange={(value: "local" | "remote") =>
-                    setFormData({ ...formData, type: value })
-                  }
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="local" id="local" />
-                    <Label htmlFor="local" className="font-normal">
-                      Local workspace
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="remote" id="remote" />
-                    <Label htmlFor="remote" className="font-normal">
-                      Remote workspace (Connect to team API)
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            )}
-
-            {formData.type === "remote" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="apiUrl">API URL</Label>
-                  <Input
-                    id="apiUrl"
-                    type="url"
-                    value={formData.apiUrl}
-                    onChange={(e) =>
-                      setFormData({ ...formData, apiUrl: e.target.value })
-                    }
-                    placeholder="https://api.example.com"
-                    className={
-                      validationErrors.apiUrl ? "border-destructive" : ""
-                    }
-                  />
-                  {validationErrors.apiUrl && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.apiUrl}
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
 
             {error && (
               <Alert variant="destructive">

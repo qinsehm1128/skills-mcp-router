@@ -54,20 +54,3 @@ export interface UIState {
   // Theme
   theme: Theme;
 }
-
-export interface AuthStoreState {
-  // Authentication data
-  isAuthenticated: boolean;
-  userId: string | null;
-  authToken: string | null;
-  userInfo: any | null; // UserInfo from auth.ts
-
-  // Login state
-  isLoggingIn: boolean;
-
-  // Error states
-  loginError: string | null;
-
-  // Credit information (if applicable)
-  credits: number | null;
-}
