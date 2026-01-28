@@ -1,18 +1,7 @@
-import { ipcMain, app, autoUpdater } from "electron";
+import { ipcMain, app } from "electron";
 import { commandExists } from "@/main/utils/env-utils";
-import { API_BASE_URL, mainWindow } from "@/main";
 
-let isUpdateAvailable = false;
 let isAutoUpdateInProgress = false;
-
-// Set up autoUpdater event listeners
-autoUpdater.on("update-downloaded", () => {
-  isUpdateAvailable = true;
-  // Notify renderer process about available update
-  if (mainWindow) {
-    mainWindow.webContents.send("update:downloaded", true);
-  }
-});
 
 export function setupSystemHandlers(): void {
   // System info and commands
@@ -26,37 +15,14 @@ export function setupSystemHandlers(): void {
     return result;
   });
 
-  // Feedback submission
-  ipcMain.handle("system:submitFeedback", async (_, feedback: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/feedback`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ feedback }),
-      });
-      return response.ok;
-    } catch (error) {
-      console.error("Failed to submit feedback:", error);
-      return false;
-    }
-  });
-
-  // Update management
+  // Update management (disabled)
   ipcMain.handle("system:checkForUpdates", () => {
     return {
-      updateAvailable: isUpdateAvailable,
+      updateAvailable: false,
     };
   });
 
   ipcMain.handle("system:installUpdate", () => {
-    if (isUpdateAvailable) {
-      isAutoUpdateInProgress = true;
-      autoUpdater.quitAndInstall();
-      app.quit();
-      return true;
-    }
     return false;
   });
 

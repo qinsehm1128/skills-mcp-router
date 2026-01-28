@@ -67,10 +67,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   checkCommandExists: (command: string) =>
     ipcRenderer.invoke("system:commandExists", command),
 
-  // Feedback
-  submitFeedback: (feedback: string) =>
-    ipcRenderer.invoke("system:submitFeedback", feedback),
-
   // Update Management
   checkForUpdates: () => ipcRenderer.invoke("system:checkForUpdates"),
   installUpdate: () => ipcRenderer.invoke("system:installUpdate"),

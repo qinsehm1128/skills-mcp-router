@@ -13,9 +13,8 @@ import { Badge } from "@mcp_router/ui";
 import { Switch } from "@mcp_router/ui";
 import { Input } from "@mcp_router/ui";
 import { useThemeStore } from "@/renderer/stores";
-import { IconBrandDiscord, IconCheck, IconX } from "@tabler/icons-react";
+import { IconCheck, IconX } from "@tabler/icons-react";
 import { electronPlatformAPI as platformAPI } from "../../platform-api/electron-platform-api";
-import { postHogService } from "../../services/posthog-service";
 import type { AIConfig, MCPEndpointMode } from "@mcp_router/shared";
 import { DEFAULT_AI_CONFIG } from "@mcp_router/shared";
 
@@ -23,8 +22,6 @@ const Settings: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [loadExternalMCPConfigs, setLoadExternalMCPConfigs] =
     useState<boolean>(true);
-  const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(true);
-  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState<boolean>(true);
   const [openAtLogin, setOpenAtLogin] = useState<boolean>(false);
   const [showWindowOnStartup, setShowWindowOnStartup] = useState<boolean>(true);
   const [mcpEndpointMode, setMcpEndpointMode] = useState<MCPEndpointMode>("entry");
@@ -70,8 +67,6 @@ const Settings: React.FC = () => {
       try {
         const settings = await platformAPI.settings.get();
         setLoadExternalMCPConfigs(settings.loadExternalMCPConfigs ?? true);
-        setAnalyticsEnabled(settings.analyticsEnabled ?? true);
-        setAutoUpdateEnabled(settings.autoUpdateEnabled ?? true);
         setOpenAtLogin(settings.openAtLogin ?? false);
         setShowWindowOnStartup(settings.showWindowOnStartup ?? true);
         setMcpEndpointMode(settings.mcpEndpointMode ?? "entry");
@@ -124,51 +119,6 @@ const Settings: React.FC = () => {
       console.error("Failed to save settings:", error);
       // Revert on error
       setLoadExternalMCPConfigs(!checked);
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
-  // Handle analytics toggle
-  const handleAnalyticsToggle = async (checked: boolean) => {
-    setAnalyticsEnabled(checked);
-    setIsSavingSettings(true);
-
-    try {
-      const currentSettings = await platformAPI.settings.get();
-      await platformAPI.settings.save({
-        ...currentSettings,
-        analyticsEnabled: checked,
-      });
-
-      // Update PostHog service
-      postHogService.updateConfig({
-        analyticsEnabled: checked,
-      });
-    } catch (error) {
-      console.error("Failed to save analytics settings:", error);
-      // Revert on error
-      setAnalyticsEnabled(!checked);
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
-  // Handle auto update toggle
-  const handleAutoUpdateToggle = async (checked: boolean) => {
-    setAutoUpdateEnabled(checked);
-    setIsSavingSettings(true);
-
-    try {
-      const currentSettings = await platformAPI.settings.get();
-      await platformAPI.settings.save({
-        ...currentSettings,
-        autoUpdateEnabled: checked,
-      });
-    } catch (error) {
-      console.error("Failed to save auto update settings:", error);
-      // Revert on error
-      setAutoUpdateEnabled(!checked);
     } finally {
       setIsSavingSettings(false);
     }
@@ -418,30 +368,6 @@ const Settings: React.FC = () => {
         </Card>
       )}
 
-      {/* Community Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">{t("settings.community")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {t("settings.communityDescription")}
-            </p>
-            <Button
-              variant="outline"
-              className="w-full flex items-center justify-center gap-2"
-              onClick={() =>
-                window.open("https://discord.gg/dwG9jPrhxB", "_blank")
-              }
-            >
-              <IconBrandDiscord className="h-5 w-5" />
-              {t("settings.joinDiscord")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* AI Configuration Card */}
       <Card>
         <CardHeader>
@@ -578,36 +504,6 @@ const Settings: React.FC = () => {
             <Switch
               checked={loadExternalMCPConfigs}
               onCheckedChange={handleExternalMCPConfigsToggle}
-              disabled={isSavingSettings}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">
-                {t("settings.analytics")}
-              </label>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.analyticsDescription")}
-              </p>
-            </div>
-            <Switch
-              checked={analyticsEnabled}
-              onCheckedChange={handleAnalyticsToggle}
-              disabled={isSavingSettings}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-sm font-medium">
-                {t("settings.autoUpdate")}
-              </label>
-              <p className="text-xs text-muted-foreground">
-                {t("settings.autoUpdateDescription")}
-              </p>
-            </div>
-            <Switch
-              checked={autoUpdateEnabled}
-              onCheckedChange={handleAutoUpdateToggle}
               disabled={isSavingSettings}
             />
           </div>

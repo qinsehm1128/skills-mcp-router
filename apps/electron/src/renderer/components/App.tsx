@@ -13,7 +13,6 @@ import Settings from "./setting/Settings";
 import { useServerStore, initializeStores } from "../stores";
 import { usePlatformAPI } from "@/renderer/platform-api";
 import { IconProgress } from "@tabler/icons-react";
-import { postHogService } from "../services/posthog-service";
 import WorkspaceManagement from "./workspace/WorkspaceManagement";
 import WorkflowManager from "./workflow/WorkflowManager";
 import SkillsPage from "./skills/SkillsPage";
@@ -36,12 +35,6 @@ const App: React.FC = () => {
       try {
         // Initialize all stores
         await initializeStores();
-
-        // Initialize PostHog after getting settings
-        const settings = await platformAPI.settings.get();
-        postHogService.initialize({
-          analyticsEnabled: settings.analyticsEnabled ?? true,
-        });
       } catch (error) {
         console.error("Failed to initialize app:", error);
       } finally {

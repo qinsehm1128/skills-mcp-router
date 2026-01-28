@@ -103,7 +103,7 @@ class ElectronPlatformAPI implements PlatformAPI {
       save: (settings) => window.electronAPI.saveSettings(settings),
       incrementOverlayCount: () =>
         window.electronAPI.incrementPackageManagerOverlayCount(),
-      submitFeedback: (feedback) => window.electronAPI.submitFeedback(feedback),
+      submitFeedback: async () => false, // Disabled
     };
 
     // Initialize logs domain

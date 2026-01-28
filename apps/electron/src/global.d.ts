@@ -102,9 +102,6 @@ declare global {
         updates?: ServerPackageUpdates;
       }>;
 
-      // Feedback
-      submitFeedback: (feedback: string) => Promise<boolean>;
-
       // Update Management
       checkForUpdates: () => Promise<{ updateAvailable: boolean }>;
       installUpdate: () => Promise<boolean>;

@@ -7,6 +7,7 @@ import {
   IconDeviceDesktop,
   IconDownload,
   IconFileDescription,
+  IconWebhook,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { usePlatformAPI } from "@/renderer/platform-api";
@@ -30,16 +31,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@mcp_router/ui";
-import { Button } from "@mcp_router/ui";
-import { Textarea } from "@mcp_router/ui";
-import { toast } from "sonner";
 
 const SidebarComponent: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
   const platformAPI = usePlatformAPI();
 
   useEffect(() => {
@@ -64,26 +60,6 @@ const SidebarComponent: React.FC = () => {
 
   const handleInstallUpdate = () => {
     platformAPI.packages.system.installUpdate();
-  };
-
-  const handleSubmitFeedback = async () => {
-    if (!feedback.trim()) return;
-    setIsSendingFeedback(true);
-    try {
-      const success = await platformAPI.settings.submitFeedback(
-        feedback.trim(),
-      );
-      if (success) {
-        setFeedback("");
-        toast.success(t("feedback.sent"));
-      } else {
-        toast.error(t("feedback.failed"));
-      }
-    } catch {
-      toast.error(t("feedback.failed"));
-    } finally {
-      setIsSendingFeedback(false);
-    }
   };
 
   return (
@@ -185,26 +161,27 @@ const SidebarComponent: React.FC = () => {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+
+          {/* Workflows */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip={t("hooks.title")}
+              isActive={location.pathname.startsWith("/workflows")}
+            >
+              <Link
+                to="/workflows"
+                className="flex items-center gap-3 py-5 px-3 w-full"
+              >
+                <IconWebhook className="h-6 w-6" />
+                <span className="text-base">{t("hooks.title")}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="p-3 space-y-2 border-t border-border">
-          <Textarea
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            rows={3}
-            placeholder={t("feedback.placeholder")}
-            className="text-sm"
-          />
-          <Button
-            onClick={handleSubmitFeedback}
-            disabled={!feedback.trim() || isSendingFeedback}
-            className="w-full"
-          >
-            {isSendingFeedback ? t("common.loading") : t("common.send")}
-          </Button>
-        </div>
         <SidebarMenu>
           {updateAvailable && (
             <SidebarMenuItem>
