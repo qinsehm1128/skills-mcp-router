@@ -89,6 +89,7 @@ export class EntryMCPServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
+          EntryMCPService.getListMCPServersDefinition(),
           EntryMCPService.getListMCPToolsDefinition(),
           EntryMCPService.getCallMCPToolDefinition(),
         ],
@@ -104,7 +105,25 @@ export class EntryMCPServer {
       try {
         let result: any;
 
-        if (toolName === "list_mcp_tools") {
+        if (toolName === "list_mcp_servers") {
+          const servers = this.service.listMCPServers();
+
+          getLogService().recordMcpRequestLog({
+            timestamp: new Date().toISOString(),
+            requestType: "EntryMCP:list_mcp_servers",
+            params: args,
+            result: "success",
+            duration: Date.now() - startTime,
+            clientId: "entry-mcp",
+          });
+
+          return {
+            content: [
+              { type: "text", text: JSON.stringify(servers, null, 2) },
+            ],
+            isError: false,
+          };
+        } else if (toolName === "list_mcp_tools") {
           result = await this.service.listMCPTools({
             mcpName: args.mcpName as string | undefined,
             projectId: args.projectId as string | undefined,

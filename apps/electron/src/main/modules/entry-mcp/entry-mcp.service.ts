@@ -229,6 +229,34 @@ export class EntryMCPService {
   }
 
   /**
+   * 列出所有MCP服务器的名称和描述
+   */
+  public listMCPServers(): { name: string; description: string }[] {
+    const servers = this.deps.getServers();
+    return servers
+      .filter((s) => s.status === "running" && !s.disabled)
+      .map((s) => ({
+        name: s.name,
+        description: s.description || "",
+      }));
+  }
+
+  /**
+   * 获取list_mcp_servers工具定义
+   */
+  public static getListMCPServersDefinition() {
+    return {
+      name: "list_mcp_servers",
+      description:
+        "列出所有可用的MCP服务器名称及描述。返回当前运行中的MCP服务器列表，不包含具体工具信息。",
+      inputSchema: {
+        type: "object" as const,
+        properties: {},
+      },
+    };
+  }
+
+  /**
    * 获取list_mcp_tools工具定义
    */
   public static getListMCPToolsDefinition() {
