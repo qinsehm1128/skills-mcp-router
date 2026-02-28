@@ -188,13 +188,20 @@ Default port: **3282**
 注意事项：
 - 调用前必须确认工具名称和参数格式正确
 - 如果调用失败，请检查参数是否符合工具要求
-- 不要重复调用同一工具，除非用户明确要求`,
+- 不要重复调用同一工具，除非用户明确要求
+- 可选 timeoutSec 参数可覆盖默认超时（默认 300 秒）`,
   inputSchema: {
     type: "object",
     properties: {
       mcpName: { type: "string", description: "MCP服务器名称" },
       toolName: { type: "string", description: "要调用的工具名称" },
-      arguments: { type: "object", description: "工具参数" }
+      arguments: { type: "object", description: "工具参数" },
+      timeoutSec: {
+        type: "number",
+        description: "可选，调用超时时间（秒），默认 300 秒",
+        minimum: 1,
+        default: 300
+      }
     },
     required: ["mcpName", "toolName"]
   }

@@ -54,7 +54,7 @@ export class MCPHttpServer {
           inputSchema: t.inputSchema,
         }));
       },
-      callTool: async (serverName, toolName, args) => {
+      callTool: async (serverName, toolName, args, timeoutMs) => {
         const maps = serverManager.getMaps();
         const serverId = maps.serverNameToIdMap.get(serverName);
         if (!serverId) {
@@ -64,10 +64,11 @@ export class MCPHttpServer {
         if (!client) {
           throw new Error(`Server not connected: ${serverName}`);
         }
+        const resolvedTimeoutMs = timeoutMs ?? 300 * 1000;
         return await client.callTool(
           { name: toolName, arguments: args },
           undefined,
-          { timeout: 60 * 60 * 1000, resetTimeoutOnProgress: true },
+          { timeout: resolvedTimeoutMs, resetTimeoutOnProgress: true },
         );
       },
     };

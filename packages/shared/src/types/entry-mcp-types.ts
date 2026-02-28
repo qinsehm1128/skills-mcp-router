@@ -75,6 +75,8 @@ export interface CallMCPToolParams {
   toolName: string;
   /** 工具参数 */
   arguments: Record<string, unknown>;
+  /** 调用超时时间（秒），默认 300 秒 */
+  timeoutSec?: number;
 }
 
 /**

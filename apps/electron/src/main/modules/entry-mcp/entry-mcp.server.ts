@@ -149,6 +149,7 @@ export class EntryMCPServer {
           const mcpName = args.mcpName as string;
           const targetToolName = args.toolName as string;
           const toolArgs = (args.arguments || {}) as Record<string, unknown>;
+          const timeoutSecRaw = args.timeoutSec;
 
           if (!mcpName || !targetToolName) {
             return {
@@ -162,16 +163,42 @@ export class EntryMCPServer {
             };
           }
 
+          if (
+            timeoutSecRaw !== undefined &&
+            (typeof timeoutSecRaw !== "number" ||
+              !Number.isFinite(timeoutSecRaw) ||
+              timeoutSecRaw <= 0)
+          ) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Error: timeoutSec must be a positive number",
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          const timeoutSec =
+            typeof timeoutSecRaw === "number" ? timeoutSecRaw : undefined;
+
           result = await this.service.callMCPTool({
             mcpName,
             toolName: targetToolName,
             arguments: toolArgs,
+            timeoutSec,
           });
 
           getLogService().recordMcpRequestLog({
             timestamp: new Date().toISOString(),
             requestType: `EntryMCP:call_mcp_tool(${mcpName}/${targetToolName})`,
-            params: { mcpName, toolName: targetToolName, arguments: toolArgs },
+            params: {
+              mcpName,
+              toolName: targetToolName,
+              arguments: toolArgs,
+              timeoutSec,
+            },
             result: result.isError ? "error" : "success",
             duration: Date.now() - startTime,
             clientId: "entry-mcp",

@@ -21,8 +21,12 @@ export interface EntryMCPServiceDeps {
     serverName: string,
     toolName: string,
     args: Record<string, unknown>,
+    timeoutMs?: number,
   ) => Promise<any>;
 }
+
+const DEFAULT_CALL_TOOL_TIMEOUT_SEC = 300;
+const DEFAULT_CALL_TOOL_TIMEOUT_MS = DEFAULT_CALL_TOOL_TIMEOUT_SEC * 1000;
 
 export class EntryMCPService {
   private deps: EntryMCPServiceDeps;
@@ -98,10 +102,12 @@ export class EntryMCPService {
     }
 
     try {
+      const timeoutMs = this.resolveTimeoutMs(params.timeoutSec);
       const result = await this.deps.callTool(
         params.mcpName,
         params.toolName,
         params.arguments,
+        timeoutMs,
       );
 
       return {
@@ -115,6 +121,25 @@ export class EntryMCPService {
         errorCode: "CALL_FAILED",
       };
     }
+  }
+
+  /**
+   * 解析并标准化超时参数（毫秒）
+   */
+  private resolveTimeoutMs(timeoutSec?: number): number {
+    if (timeoutSec === undefined) {
+      return DEFAULT_CALL_TOOL_TIMEOUT_MS;
+    }
+
+    if (
+      typeof timeoutSec !== "number" ||
+      !Number.isFinite(timeoutSec) ||
+      timeoutSec <= 0
+    ) {
+      return DEFAULT_CALL_TOOL_TIMEOUT_MS;
+    }
+
+    return Math.floor(timeoutSec * 1000);
   }
 
   /**
@@ -298,7 +323,8 @@ export class EntryMCPService {
 注意事项：
 - 调用前必须确认工具名称和参数格式正确
 - 如果调用失败，请检查参数是否符合工具要求
-- 不要重复调用同一工具，除非用户明确要求`,
+- 不要重复调用同一工具，除非用户明确要求
+- 可选 timeoutSec 参数用于覆盖默认超时（默认 300 秒）`,
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -314,6 +340,12 @@ export class EntryMCPService {
             type: "object",
             description: "工具参数（根据工具的inputSchema提供）",
             additionalProperties: true,
+          },
+          timeoutSec: {
+            type: "number",
+            description: "可选，调用超时时间（秒），默认 300 秒",
+            minimum: 1,
+            default: DEFAULT_CALL_TOOL_TIMEOUT_SEC,
           },
         },
         required: ["mcpName", "toolName"] as string[],

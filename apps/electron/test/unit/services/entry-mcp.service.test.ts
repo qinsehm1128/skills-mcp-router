@@ -427,6 +427,10 @@ describe("EntryMCPService", () => {
               type: "object",
               description: "工具参数",
             },
+            timeoutSec: {
+              type: "number",
+              description: "可选，调用超时时间（秒），默认 300 秒",
+            },
           },
           required: ["mcpName", "toolName"],
         },
@@ -435,6 +439,7 @@ describe("EntryMCPService", () => {
       expect(callMCPToolSchema.name).toBe("call_mcp_tool");
       expect(callMCPToolSchema.inputSchema.required).toContain("mcpName");
       expect(callMCPToolSchema.inputSchema.required).toContain("toolName");
+      expect(callMCPToolSchema.inputSchema.properties).toHaveProperty("timeoutSec");
     });
   });
 });
