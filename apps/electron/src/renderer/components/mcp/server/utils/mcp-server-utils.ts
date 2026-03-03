@@ -1,4 +1,177 @@
 import { v4 as uuidv4 } from "uuid";
+import type { MCPServer } from "@mcp_router/shared";
+
+const HTTP_URL_REGEX = /^https?:\/\//i;
+
+function stripOuterQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function isHttpUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" && HTTP_URL_REGEX.test(stripOuterQuotes(value))
+  );
+}
+
+function normalizeHttpUrl(value: string): string {
+  return stripOuterQuotes(value);
+}
+
+function isMcpProxyCommand(command: unknown): boolean {
+  if (typeof command !== "string") {
+    return false;
+  }
+
+  const normalized = stripOuterQuotes(command)
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  return normalized.endsWith("/mcp-proxy") || normalized.endsWith("mcp-proxy");
+}
+
+function findRemoteUrlFromArgs(args: unknown): string | undefined {
+  if (!Array.isArray(args)) {
+    return undefined;
+  }
+
+  const normalizedArgs = args
+    .filter((arg): arg is string => typeof arg === "string")
+    .map((arg) => stripOuterQuotes(arg));
+
+  const urlFlagIndex = normalizedArgs.findIndex(
+    (arg) => arg === "--url" || arg === "-u",
+  );
+  if (
+    urlFlagIndex >= 0 &&
+    urlFlagIndex + 1 < normalizedArgs.length &&
+    isHttpUrl(normalizedArgs[urlFlagIndex + 1])
+  ) {
+    return normalizeHttpUrl(normalizedArgs[urlFlagIndex + 1]);
+  }
+
+  const firstHttpArg = normalizedArgs.find((arg) => isHttpUrl(arg));
+  if (firstHttpArg) {
+    return normalizeHttpUrl(firstHttpArg);
+  }
+
+  return undefined;
+}
+
+function inferRemoteServerTypeFromUrl(
+  url: string,
+): "remote" | "remote-streamable" {
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname.toLowerCase();
+
+    if (pathname.endsWith("/sse") || pathname.includes("/sse/")) {
+      return "remote";
+    }
+  } catch {
+    // Ignore URL parsing errors and fallback to streamable mode
+  }
+
+  return "remote-streamable";
+}
+
+function extractRemoteUrlFromServerConfig(
+  serverConfig: Record<string, any>,
+): string | undefined {
+  if (isHttpUrl(serverConfig.remoteUrl)) {
+    return normalizeHttpUrl(serverConfig.remoteUrl);
+  }
+
+  if (isHttpUrl(serverConfig.url)) {
+    return normalizeHttpUrl(serverConfig.url);
+  }
+
+  if (isHttpUrl(serverConfig.command)) {
+    return normalizeHttpUrl(serverConfig.command);
+  }
+
+  if (
+    isMcpProxyCommand(serverConfig.command) ||
+    (Array.isArray(serverConfig.args) &&
+      serverConfig.args.some((arg) => isMcpProxyCommand(arg)))
+  ) {
+    return findRemoteUrlFromArgs(serverConfig.args);
+  }
+
+  return undefined;
+}
+
+function extractBearerToken(
+  serverConfig: Record<string, any>,
+): string | undefined {
+  if (
+    typeof serverConfig.bearerToken === "string" &&
+    serverConfig.bearerToken.trim()
+  ) {
+    return serverConfig.bearerToken.trim();
+  }
+
+  const env = serverConfig.env;
+  if (!env || typeof env !== "object") {
+    return undefined;
+  }
+
+  const authHeader =
+    (env as Record<string, unknown>).AUTHORIZATION ??
+    (env as Record<string, unknown>).authorization;
+  if (typeof authHeader === "string" && authHeader.trim()) {
+    const trimmed = authHeader.trim();
+    return trimmed.toLowerCase().startsWith("bearer ")
+      ? trimmed.slice(7).trim()
+      : trimmed;
+  }
+
+  return undefined;
+}
+
+function isRemoteServerDefinition(
+  serverConfig: Record<string, any>,
+  remoteUrl?: string,
+): boolean {
+  if (!remoteUrl) {
+    return false;
+  }
+
+  const declaredServerType = serverConfig.serverType;
+  if (
+    declaredServerType === "remote" ||
+    declaredServerType === "remote-streamable"
+  ) {
+    return true;
+  }
+
+  return (
+    isMcpProxyCommand(serverConfig.command) ||
+    isHttpUrl(serverConfig.command) ||
+    isHttpUrl(serverConfig.url) ||
+    isHttpUrl(serverConfig.remoteUrl)
+  );
+}
+
+function normalizeEnv(env: unknown): Record<string, string> {
+  if (!env || typeof env !== "object") {
+    return {};
+  }
+
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env as Record<string, unknown>)) {
+    if (typeof value === "string") {
+      normalized[key] = value;
+    }
+  }
+
+  return normalized;
+}
 
 /**
  * Validates a JSON input for MCP server configuration format
@@ -41,10 +214,14 @@ export function validateMcpServerJson(jsonInput: string | object): {
         };
       }
 
-      if (!server.command || typeof server.command !== "string") {
+      const remoteUrl = extractRemoteUrlFromServerConfig(server);
+      const hasCommand =
+        typeof server.command === "string" && server.command.trim().length > 0;
+
+      if (!hasCommand && !remoteUrl) {
         return {
           valid: false,
-          error: `Missing or invalid command for server '${serverName}'`,
+          error: `Missing command or remote URL for server '${serverName}'`,
         };
       }
 
@@ -122,19 +299,38 @@ export function processMcpServerConfigs(
       // Add the unique name to our set to prevent duplicates within this batch
       currentNames.add(uniqueName);
 
-      // Extract command, args, and env from the configuration
-      const { command, args, env } = serverConfig;
+      // Extract fields from the configuration
+      const { command, args } = serverConfig;
+      const remoteUrl = extractRemoteUrlFromServerConfig(serverConfig);
+      const isRemoteServer = isRemoteServerDefinition(serverConfig, remoteUrl);
+      const env = normalizeEnv(serverConfig.env);
+      const bearerToken = extractBearerToken(serverConfig);
+      const declaredServerType = serverConfig.serverType;
+      const remoteServerType: "remote" | "remote-streamable" =
+        declaredServerType === "remote" ||
+        declaredServerType === "remote-streamable"
+          ? declaredServerType
+          : inferRemoteServerTypeFromUrl(remoteUrl || "");
 
       // Create MCPServerConfig object
       const mcpServerConfig = {
         id: uuidv4(),
         name: uniqueName,
-        command: command || "",
-        args: args || [],
-        env: env || {},
+        command: isRemoteServer
+          ? ""
+          : typeof command === "string"
+            ? command
+            : "",
+        args:
+          !isRemoteServer && Array.isArray(args)
+            ? args.filter((arg) => typeof arg === "string")
+            : [],
+        env,
         autoStart: false,
         disabled: false,
-        serverType: "local" as const,
+        serverType: isRemoteServer ? remoteServerType : ("local" as const),
+        remoteUrl: isRemoteServer ? remoteUrl : undefined,
+        bearerToken: isRemoteServer ? bearerToken : undefined,
       };
 
       results.push({
@@ -153,4 +349,64 @@ export function processMcpServerConfigs(
   }
 
   return results;
+}
+
+/**
+ * Builds standard mcpServers JSON from current server list.
+ * Remote servers are exported as mcp-proxy style for broad client compatibility.
+ */
+export function buildStandardMcpServersJson(servers: MCPServer[]): {
+  mcpServers: Record<
+    string,
+    { command: string; args?: string[]; env?: Record<string, string> }
+  >;
+} {
+  const mcpServers: Record<
+    string,
+    { command: string; args?: string[]; env?: Record<string, string> }
+  > = {};
+
+  for (const server of servers) {
+    if (!server?.name) {
+      continue;
+    }
+
+    if (server.serverType === "local") {
+      if (!server.command || !server.command.trim()) {
+        continue;
+      }
+
+      const entry: {
+        command: string;
+        args?: string[];
+        env?: Record<string, string>;
+      } = {
+        command: server.command.trim(),
+      };
+
+      const args = Array.isArray(server.args)
+        ? server.args.filter((arg): arg is string => typeof arg === "string")
+        : [];
+      if (args.length > 0) {
+        entry.args = args;
+      }
+
+      const env = normalizeEnv(server.env);
+      if (Object.keys(env).length > 0) {
+        entry.env = env;
+      }
+
+      mcpServers[server.name] = entry;
+      continue;
+    }
+
+    if (server.remoteUrl && isHttpUrl(server.remoteUrl)) {
+      mcpServers[server.name] = {
+        command: "mcp-proxy",
+        args: [normalizeHttpUrl(server.remoteUrl)],
+      };
+    }
+  }
+
+  return { mcpServers };
 }

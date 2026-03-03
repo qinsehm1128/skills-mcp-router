@@ -12,6 +12,7 @@ import {
   Terminal,
   Sparkles,
   Loader2,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,6 +36,7 @@ import ServerDetailsAutoStart from "./ServerDetailsAutoStart";
 import ServerDetailsInputParams from "./ServerDetailsInputParams";
 import { useServerEditingStore } from "@/renderer/stores";
 import { usePlatformAPI } from "@/renderer/platform-api";
+import { buildStandardMcpServersJson } from "@/renderer/components/mcp/server/utils/mcp-server-utils";
 
 interface ServerDetailsAdvancedSheetProps {
   server: MCPServer;
@@ -67,7 +69,6 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
     setEditedName,
     setEditedDescription,
     setEditedCommand,
-    setEditedArgs,
     setEditedBearerToken,
     setEditedAutoStart,
     setIsLoading,
@@ -297,21 +298,25 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
             variant="outline"
             size="sm"
             onClick={async () => {
-              console.log("[AI Generate] Button clicked, starting generation...");
+              console.log(
+                "[AI Generate] Button clicked, starting generation...",
+              );
               setIsGeneratingDesc(true);
               try {
                 // 获取当前语言代码 (en, zh, ja)
                 const currentLang = i18n.language?.split("-")[0] || "en";
                 const request = {
                   serverName: editedName || server.name,
-                  tools: server.tools?.map((tool) => ({
-                    name: tool.name,
-                    description: tool.description,
-                  })) || [],
+                  tools:
+                    server.tools?.map((tool) => ({
+                      name: tool.name,
+                      description: tool.description,
+                    })) || [],
                   language: currentLang,
                 };
                 console.log("[AI Generate] Request:", request);
-                const result = await window.electronAPI.generateAISummary(request);
+                const result =
+                  await window.electronAPI.generateAISummary(request);
                 console.log("[AI Generate] Result:", result);
                 if (result.success && result.description) {
                   setEditedDescription(result.description);
@@ -349,6 +354,50 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
           {t("mcpDescription.charCount", { count: editedDescription.length })}
         </p>
       </div>
+    </div>
+  );
+
+  const copyServerConfig = async () => {
+    try {
+      const config = buildStandardMcpServersJson([server]);
+      await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+      toast.success(t("common.copiedToClipboard"));
+    } catch (error) {
+      console.error("Failed to copy server config:", error);
+      toast.error(t("serverDetails.exportFailed"));
+    }
+  };
+
+  const renderFinalCommandSection = () => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Terminal className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium text-primary">
+            {t("serverDetails.finalCommand")}
+          </h3>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onClick={copyServerConfig}
+          className="gap-1"
+        >
+          <Copy className="h-4 w-4" />
+          {t("common.copy")}
+        </Button>
+      </div>
+      {server.serverType === "local" ? (
+        <FinalCommandDisplay
+          server={server}
+          inputParamValues={inputParamValues}
+          editedCommand={editedCommand}
+          editedArgs={editedArgs}
+        />
+      ) : (
+        <ServerDetailsRemote server={server} isEditing={false} />
+      )}
     </div>
   );
 
@@ -595,24 +644,7 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
               />
 
               {/* Final Command Display */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Terminal className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-medium text-primary">
-                    {t("serverDetails.finalCommand")}
-                  </h3>
-                </div>
-                {server.serverType === "local" ? (
-                  <FinalCommandDisplay
-                    server={server}
-                    inputParamValues={inputParamValues}
-                    editedCommand={editedCommand}
-                    editedArgs={editedArgs}
-                  />
-                ) : (
-                  <ServerDetailsRemote server={server} isEditing={false} />
-                )}
-              </div>
+              {renderFinalCommandSection()}
             </TabsContent>
 
             <TabsContent value="params" className="space-y-6 mt-4">
@@ -764,24 +796,7 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
               />
 
               {/* Final Command Display */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Terminal className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-medium text-primary">
-                    {t("serverDetails.finalCommand")}
-                  </h3>
-                </div>
-                {server.serverType === "local" ? (
-                  <FinalCommandDisplay
-                    server={server}
-                    inputParamValues={inputParamValues}
-                    editedCommand={editedCommand}
-                    editedArgs={editedArgs}
-                  />
-                ) : (
-                  <ServerDetailsRemote server={server} isEditing={false} />
-                )}
-              </div>
+              {renderFinalCommandSection()}
             </TabsContent>
             <TabsContent value="tools" className="space-y-6 mt-4">
               {renderToolsContent()}
@@ -912,24 +927,7 @@ const ServerDetailsAdvancedSheet: React.FC<ServerDetailsAdvancedSheetProps> = ({
             />
 
             {/* Final Command Display */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium text-primary">
-                  {t("serverDetails.finalCommand")}
-                </h3>
-              </div>
-              {server.serverType === "local" ? (
-                <FinalCommandDisplay
-                  server={server}
-                  inputParamValues={inputParamValues}
-                  editedCommand={editedCommand}
-                  editedArgs={editedArgs}
-                />
-              ) : (
-                <ServerDetailsRemote server={server} isEditing={false} />
-              )}
-            </div>
+            {renderFinalCommandSection()}
           </div>
         )}
 

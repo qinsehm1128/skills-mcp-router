@@ -384,6 +384,7 @@
     "errorEmptyMcpServers": "The 'mcpServers' object must contain at least one server.",
     "errorInvalidServerConfig": "Invalid server configuration for '{{serverName}}'.",
     "errorMissingCommand": "Server '{{serverName}}' is missing the required 'command' field.",
+    "errorMissingCommandOrUrl": "Server '{{serverName}}' must provide either 'command' or a remote URL (url/remoteUrl/https command).",
     "errorInvalidArgs": "Server '{{serverName}}' has invalid 'args'. It must be an array.",
     "errorUnknown": "An unknown error occurred.",
     "errorFailedImport": "Failed to import servers from JSON.",

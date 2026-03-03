@@ -21,6 +21,12 @@ export interface AppSettings {
   loadExternalMCPConfigs?: boolean;
 
   /**
+   * ユーザーが削除済みとしてマークした外部MCPサーバ名
+   * 自動再インポートを防ぐために使用
+   */
+  ignoredExternalMCPServerNames?: string[];
+
+  /**
    * アナリティクスの送信を有効化するか
    * デフォルト: true
    */
@@ -65,6 +71,7 @@ export interface AppSettings {
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   packageManagerOverlayDisplayCount: 0,
   loadExternalMCPConfigs: true,
+  ignoredExternalMCPServerNames: [],
   analyticsEnabled: true,
   autoUpdateEnabled: true,
   openAtLogin: false,

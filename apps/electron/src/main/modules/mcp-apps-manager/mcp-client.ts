@@ -10,6 +10,175 @@ import {
   MCPInputParam,
 } from "@mcp_router/shared";
 
+const HTTP_URL_REGEX = /^https?:\/\//i;
+
+function stripOuterQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function isHttpUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" && HTTP_URL_REGEX.test(stripOuterQuotes(value))
+  );
+}
+
+function isMcpProxyCommand(command: unknown): boolean {
+  if (typeof command !== "string") {
+    return false;
+  }
+
+  const normalized = stripOuterQuotes(command)
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  return normalized.endsWith("/mcp-proxy") || normalized.endsWith("mcp-proxy");
+}
+
+function normalizeArgs(args: unknown): string[] {
+  if (!Array.isArray(args)) {
+    return [];
+  }
+
+  return args
+    .filter((arg): arg is string => typeof arg === "string")
+    .map((arg) => stripOuterQuotes(arg));
+}
+
+function findRemoteUrlFromArgs(args: string[]): string | undefined {
+  const urlFlagIndex = args.findIndex((arg) => arg === "--url" || arg === "-u");
+  if (
+    urlFlagIndex >= 0 &&
+    urlFlagIndex + 1 < args.length &&
+    isHttpUrl(args[urlFlagIndex + 1])
+  ) {
+    return stripOuterQuotes(args[urlFlagIndex + 1]);
+  }
+
+  const firstHttpArg = args.find((arg) => isHttpUrl(arg));
+  if (firstHttpArg) {
+    return stripOuterQuotes(firstHttpArg);
+  }
+
+  return undefined;
+}
+
+function inferServerTypeFromArgsAndUrl(
+  args: string[],
+  remoteUrl: string,
+): "remote" | "remote-streamable" {
+  const transportFlagIndex = args.findIndex((arg) => arg === "--transport");
+  if (transportFlagIndex >= 0 && transportFlagIndex + 1 < args.length) {
+    const transport = args[transportFlagIndex + 1].toLowerCase();
+    if (transport === "sse") {
+      return "remote";
+    }
+    if (
+      transport === "streamable-http" ||
+      transport === "streamable" ||
+      transport === "http"
+    ) {
+      return "remote-streamable";
+    }
+  }
+
+  if (args.includes("--sse")) {
+    return "remote";
+  }
+
+  try {
+    const parsed = new URL(remoteUrl);
+    const pathname = parsed.pathname.toLowerCase();
+    const transportParam = parsed.searchParams.get("transport")?.toLowerCase();
+
+    if (
+      pathname.endsWith("/sse") ||
+      pathname.includes("/sse/") ||
+      transportParam === "sse"
+    ) {
+      return "remote";
+    }
+  } catch {
+    // Ignore parse errors and fallback to streamable mode
+  }
+
+  return "remote-streamable";
+}
+
+function extractBearerToken(server: MCPServerConfig): string | undefined {
+  if (typeof server.bearerToken === "string" && server.bearerToken.trim()) {
+    return server.bearerToken.trim();
+  }
+
+  const env = server.env || {};
+  const authHeader = env.AUTHORIZATION || env.authorization;
+  if (typeof authHeader === "string" && authHeader.trim()) {
+    const trimmed = authHeader.trim();
+    return trimmed.toLowerCase().startsWith("bearer ")
+      ? trimmed.slice(7).trim()
+      : trimmed;
+  }
+
+  return undefined;
+}
+
+type ResolvedRemoteServerConfig = {
+  serverType: "remote" | "remote-streamable";
+  remoteUrl: string;
+  bearerToken?: string;
+};
+
+export function resolveRemoteServerConfig(
+  server: MCPServerConfig,
+): ResolvedRemoteServerConfig | null {
+  if (
+    server.serverType === "remote" ||
+    server.serverType === "remote-streamable"
+  ) {
+    if (!server.remoteUrl || !isHttpUrl(server.remoteUrl)) {
+      return null;
+    }
+
+    return {
+      serverType: server.serverType,
+      remoteUrl: stripOuterQuotes(server.remoteUrl),
+      bearerToken: extractBearerToken(server),
+    };
+  }
+
+  const args = normalizeArgs(server.args);
+  const command =
+    typeof server.command === "string" ? stripOuterQuotes(server.command) : "";
+
+  let remoteUrl: string | undefined;
+
+  if (isHttpUrl(server.remoteUrl)) {
+    remoteUrl = stripOuterQuotes(server.remoteUrl);
+  } else if (isHttpUrl(command)) {
+    remoteUrl = command;
+  } else if (
+    isMcpProxyCommand(command) ||
+    args.some((arg) => isMcpProxyCommand(arg))
+  ) {
+    remoteUrl = findRemoteUrlFromArgs(args);
+  }
+
+  if (!remoteUrl) {
+    return null;
+  }
+
+  return {
+    serverType: inferServerTypeFromArgsAndUrl(args, remoteUrl),
+    remoteUrl,
+    bearerToken: extractBearerToken(server),
+  };
+}
+
 /**
  * MCPクライアント接続機能を提供するクラス
  */
@@ -27,56 +196,47 @@ export class MCPClient {
         name: clientName,
         version: "1.0.0",
       });
+      const resolvedRemoteConfig = resolveRemoteServerConfig(server);
 
       // Choose transport based on server type
-      if (server.serverType === "remote-streamable") {
-        // Check if remoteUrl is provided for remote servers
-        if (!server.remoteUrl) {
-          throw new Error(
-            "Server configuration error: remoteUrl must be provided for remote servers",
-          );
-        }
-
+      if (resolvedRemoteConfig?.serverType === "remote-streamable") {
         // Use StreamableHTTP transport for remote-streamable servers
         const transport = new StreamableHTTPClientTransport(
-          new URL(server.remoteUrl),
+          new URL(resolvedRemoteConfig.remoteUrl),
           {
             sessionId: undefined,
             requestInit: {
               headers: {
-                authorization: server.bearerToken
-                  ? `Bearer ${server.bearerToken}`
+                authorization: resolvedRemoteConfig.bearerToken
+                  ? `Bearer ${resolvedRemoteConfig.bearerToken}`
                   : "",
               },
             },
           },
         );
         await client.connect(transport);
-      } else if (server.serverType === "remote") {
-        // Check if remoteUrl is provided for remote servers
-        if (!server.remoteUrl) {
-          throw new Error(
-            "Server configuration error: remoteUrl must be provided for remote servers",
-          );
-        }
-
+      } else if (resolvedRemoteConfig?.serverType === "remote") {
         // Use SSE transport for remote servers
         const headers: Record<string, string> = {
           Accept: "text/event-stream",
         };
 
-        if (server.bearerToken) {
-          headers["authorization"] = `Bearer ${server.bearerToken}`;
+        if (resolvedRemoteConfig.bearerToken) {
+          headers["authorization"] =
+            `Bearer ${resolvedRemoteConfig.bearerToken}`;
         }
 
-        const transport = new SSEClientTransport(new URL(server.remoteUrl), {
-          eventSourceInit: {
-            fetch: (url, init) => fetch(url, { ...init, headers }),
+        const transport = new SSEClientTransport(
+          new URL(resolvedRemoteConfig.remoteUrl),
+          {
+            eventSourceInit: {
+              fetch: (url, init) => globalThis.fetch(url, { ...init, headers }),
+            },
+            requestInit: {
+              headers,
+            },
           },
-          requestInit: {
-            headers,
-          },
-        });
+        );
         await client.connect(transport);
       } else if (server.serverType === "local") {
         // Local server - check if command is provided

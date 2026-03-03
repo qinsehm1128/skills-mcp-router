@@ -162,11 +162,14 @@ const Manual: React.FC = () => {
             valid: false,
             error: t("importFromJson.errorInvalidServerConfig", { serverName }),
           };
-        } else if (result.error?.includes("Missing or invalid command")) {
+        } else if (
+          result.error?.includes("Missing command or remote URL") ||
+          result.error?.includes("Missing or invalid command")
+        ) {
           const serverName = result.error.match(/'([^']+)'/)?.[1] || "";
           return {
             valid: false,
-            error: t("importFromJson.errorMissingCommand", { serverName }),
+            error: t("importFromJson.errorMissingCommandOrUrl", { serverName }),
           };
         } else if (result.error?.includes("Arguments must be an array")) {
           const serverName = result.error.match(/'([^']+)'/)?.[1] || "";
@@ -672,7 +675,8 @@ const Manual: React.FC = () => {
                       }
                       setIsGeneratingDesc(true);
                       try {
-                        const currentLang = i18n.language?.split("-")[0] || "en";
+                        const currentLang =
+                          i18n.language?.split("-")[0] || "en";
                         const result =
                           await window.electronAPI.generateAISummary({
                             serverName,
@@ -704,7 +708,9 @@ const Manual: React.FC = () => {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("mcpDescription.charCount", { count: serverDescription.length })}
+                {t("mcpDescription.charCount", {
+                  count: serverDescription.length,
+                })}
               </p>
             </Row>
 
@@ -916,7 +922,8 @@ const Manual: React.FC = () => {
                       }
                       setIsGeneratingRemoteDesc(true);
                       try {
-                        const currentLang = i18n.language?.split("-")[0] || "en";
+                        const currentLang =
+                          i18n.language?.split("-")[0] || "en";
                         const result =
                           await window.electronAPI.generateAISummary({
                             serverName: remoteServerName,
@@ -950,7 +957,9 @@ const Manual: React.FC = () => {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("mcpDescription.charCount", { count: remoteServerDescription.length })}
+                {t("mcpDescription.charCount", {
+                  count: remoteServerDescription.length,
+                })}
               </p>
             </Row>
 

@@ -15,6 +15,7 @@ import {
   IconServer,
   IconPlus,
   IconUpload,
+  IconCopy,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/renderer/utils/tailwind-utils";
@@ -35,6 +36,7 @@ import {
   UNASSIGNED_PROJECT_ID,
 } from "../stores";
 import { showServerError } from "@/renderer/components/common";
+import { buildStandardMcpServersJson } from "@/renderer/components/mcp/server/utils/mcp-server-utils";
 
 // Import components
 import { ServerErrorModal } from "@/renderer/components/common/ServerErrorModal";
@@ -186,20 +188,7 @@ const Home: React.FC = () => {
 
   // Handle export servers
   const exportServersToFile = React.useCallback(() => {
-    // Convert servers array to mcpServers object format
-    const mcpServers: Record<string, unknown> = {};
-
-    servers.forEach((server) => {
-      mcpServers[server.name] = {
-        command: server.command,
-        args: server.args || [],
-        env: server.env || {},
-      };
-    });
-
-    const exportData = {
-      mcpServers: mcpServers,
-    };
+    const exportData = buildStandardMcpServersJson(servers);
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataUri =
@@ -212,6 +201,18 @@ const Home: React.FC = () => {
     linkElement.setAttribute("download", exportFileDefaultName);
     linkElement.click();
   }, [servers]);
+
+  const copyServersJsonToClipboard = React.useCallback(async () => {
+    try {
+      const exportData = buildStandardMcpServersJson(servers);
+      const dataStr = JSON.stringify(exportData, null, 2);
+      await navigator.clipboard.writeText(dataStr);
+      toast.success(t("common.copiedToClipboard"));
+    } catch (error) {
+      console.error("Failed to copy server configuration:", error);
+      toast.error(t("serverDetails.exportFailed"));
+    }
+  }, [servers, t]);
 
   const handleCreateProject = React.useCallback(
     async (input: { name: string }) => {
@@ -311,6 +312,15 @@ const Home: React.FC = () => {
             <Grid3X3 className="h-4 w-4" />
           </Button>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={copyServersJsonToClipboard}
+          className="gap-1"
+          title={t("common.copy")}
+        >
+          <IconCopy className="h-4 w-4" />
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -1052,7 +1062,9 @@ const Home: React.FC = () => {
                   await window.electronAPI.manualSkillsSync();
                 } catch {
                   // Skills同步失败不影响保存成功
-                  console.warn("Failed to sync skills after description update");
+                  console.warn(
+                    "Failed to sync skills after description update",
+                  );
                 }
               }
 
@@ -1088,7 +1100,7 @@ const Home: React.FC = () => {
             try {
               await deleteServer(settingsServer.id);
               toast.success(t("serverDetails.removeSuccess"));
-            } catch (e) {
+            } catch {
               toast.error(t("serverDetails.removeFailed"));
             } finally {
               // Ensure UI reflects the deletion

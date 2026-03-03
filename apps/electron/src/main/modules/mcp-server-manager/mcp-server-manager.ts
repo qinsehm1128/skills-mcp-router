@@ -11,6 +11,10 @@ import {
   connectToMCPServer,
   substituteArgsParameters,
 } from "../mcp-apps-manager/mcp-apps-manager.service";
+import {
+  clearDeletedExternalServerMark,
+  markExternalServerAsDeleted,
+} from "../mcp-apps-manager/mcp-config-importer";
 import { getLogService } from "@/main/modules/mcp-logger/mcp-logger.service";
 import { getSkillsWatcher } from "@/main/modules/skills";
 
@@ -174,6 +178,8 @@ export class MCPServerManager {
    * Add a new MCP server
    */
   public addServer(config: MCPServerConfig): MCPServer {
+    clearDeletedExternalServerMark(config.name);
+
     const newServer = this.serverService.addServer(config);
     this.servers.set(newServer.id, newServer);
     this.updateServerNameMapping(newServer);
@@ -203,6 +209,8 @@ export class MCPServerManager {
 
     // Remove from memory if successful
     if (removed && server) {
+      markExternalServerAsDeleted(server.name);
+
       this.serverNameToIdMap.delete(server.name);
       this.servers.delete(id);
 
@@ -343,7 +351,7 @@ export class MCPServerManager {
       getSkillsWatcher().onServerStopped(id);
 
       return true;
-    } catch (error) {
+    } catch {
       server.status = "error";
       return false;
     }

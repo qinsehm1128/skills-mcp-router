@@ -384,6 +384,7 @@
     "errorEmptyMcpServers": "'mcpServers' 对象必须包含至少一个服务器。",
     "errorInvalidServerConfig": "'{{serverName}}' 的服务器配置无效。",
     "errorMissingCommand": "服务器 '{{serverName}}' 缺少必需的 'command' 字段。",
+    "errorMissingCommandOrUrl": "服务器 '{{serverName}}' 必须提供 'command' 或远程 URL（url/remoteUrl/https 命令）。",
     "errorInvalidArgs": "服务器 '{{serverName}}' 的 'args' 无效。必须是数组。",
     "errorUnknown": "发生未知错误。",
     "errorFailedImport": "从 JSON 导入服务器失败。",

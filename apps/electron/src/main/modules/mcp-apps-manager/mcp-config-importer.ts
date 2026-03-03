@@ -10,6 +10,68 @@ import {
   findStandardAppDefinition,
 } from "./app-definitions";
 
+const HTTP_URL_REGEX = /^https?:\/\//i;
+
+function normalizeServerName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function getIgnoredExternalServerNames(settings: any): Set<string> {
+  const rawNames = settings["ignoredExternalMCPServerNames"];
+  const names = Array.isArray(rawNames)
+    ? rawNames.filter((name): name is string => typeof name === "string")
+    : [];
+  return new Set(names.map((name) => normalizeServerName(name)));
+}
+
+function saveIgnoredExternalServerNames(
+  settings: any,
+  names: Set<string>,
+): void {
+  const sorted = [...names].sort();
+  const settingsService = getSettingsService();
+  settingsService.saveSettings({
+    ...settings,
+    ignoredExternalMCPServerNames: sorted,
+  } as any);
+}
+
+export function markExternalServerAsDeleted(serverName: string): void {
+  const normalizedName = normalizeServerName(serverName);
+  if (!normalizedName) {
+    return;
+  }
+
+  const settingsService = getSettingsService();
+  const settings = settingsService.getSettings();
+  const ignoredNames = getIgnoredExternalServerNames(settings);
+
+  if (ignoredNames.has(normalizedName)) {
+    return;
+  }
+
+  ignoredNames.add(normalizedName);
+  saveIgnoredExternalServerNames(settings, ignoredNames);
+}
+
+export function clearDeletedExternalServerMark(serverName: string): void {
+  const normalizedName = normalizeServerName(serverName);
+  if (!normalizedName) {
+    return;
+  }
+
+  const settingsService = getSettingsService();
+  const settings = settingsService.getSettings();
+  const ignoredNames = getIgnoredExternalServerNames(settings);
+
+  if (!ignoredNames.has(normalizedName)) {
+    return;
+  }
+
+  ignoredNames.delete(normalizedName);
+  saveIgnoredExternalServerNames(settings, ignoredNames);
+}
+
 // Helper to match CLI arg variations like "@mcp_router/cli", "@mcp_router/cli@latest", "@mcp_router/cli@0.x",
 // and legacy aliases like "mcpr-cli", "mcpr-cli@latest"
 function isMcpRouterCliArg(arg: string): boolean {
@@ -40,6 +102,188 @@ function stripOuterQuotes(val: any): any {
   if (s.startsWith('"') || s.startsWith("'")) s = s.slice(1);
   if (s.endsWith('"') || s.endsWith("'")) s = s.slice(0, -1);
   return s;
+}
+
+function isHttpUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" && HTTP_URL_REGEX.test(stripOuterQuotes(value))
+  );
+}
+
+function normalizeStringArray(values: unknown): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  return values
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => stripOuterQuotes(item));
+}
+
+function normalizeEnv(env: unknown): Record<string, string> {
+  if (!env || typeof env !== "object") {
+    return {};
+  }
+
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env as Record<string, unknown>)) {
+    if (typeof value === "string") {
+      normalized[key] = value;
+    }
+  }
+
+  return normalized;
+}
+
+function isMcpProxyCommand(command: unknown): boolean {
+  if (typeof command !== "string") {
+    return false;
+  }
+
+  const normalized = stripOuterQuotes(command)
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  return normalized.endsWith("/mcp-proxy") || normalized.endsWith("mcp-proxy");
+}
+
+function findRemoteUrlFromArgs(args: string[]): string | undefined {
+  const urlFlagIndex = args.findIndex((arg) => arg === "--url" || arg === "-u");
+  if (
+    urlFlagIndex >= 0 &&
+    urlFlagIndex + 1 < args.length &&
+    isHttpUrl(args[urlFlagIndex + 1])
+  ) {
+    return stripOuterQuotes(args[urlFlagIndex + 1]);
+  }
+
+  const firstHttpArg = args.find((arg) => isHttpUrl(arg));
+  if (firstHttpArg) {
+    return stripOuterQuotes(firstHttpArg);
+  }
+
+  return undefined;
+}
+
+function inferRemoteServerType(url: string): "remote" | "remote-streamable" {
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname.toLowerCase();
+    if (pathname.endsWith("/sse") || pathname.includes("/sse/")) {
+      return "remote";
+    }
+  } catch {
+    // Ignore parse errors and fallback to streamable mode
+  }
+
+  return "remote-streamable";
+}
+
+function extractRemoteUrl(
+  serverConfig: Record<string, any>,
+): string | undefined {
+  if (isHttpUrl(serverConfig.remoteUrl)) {
+    return stripOuterQuotes(serverConfig.remoteUrl);
+  }
+
+  if (isHttpUrl(serverConfig.url)) {
+    return stripOuterQuotes(serverConfig.url);
+  }
+
+  if (isHttpUrl(serverConfig.command)) {
+    return stripOuterQuotes(serverConfig.command);
+  }
+
+  const args = normalizeStringArray(serverConfig.args);
+  if (
+    isMcpProxyCommand(serverConfig.command) ||
+    args.some((arg) => isMcpProxyCommand(arg))
+  ) {
+    return findRemoteUrlFromArgs(args);
+  }
+
+  return undefined;
+}
+
+function extractBearerToken(
+  serverConfig: Record<string, any>,
+): string | undefined {
+  if (
+    typeof serverConfig.bearerToken === "string" &&
+    serverConfig.bearerToken.trim()
+  ) {
+    return stripOuterQuotes(serverConfig.bearerToken);
+  }
+
+  const env = normalizeEnv(serverConfig.env);
+  const authHeader = env.AUTHORIZATION || env.authorization;
+  if (typeof authHeader === "string" && authHeader.trim()) {
+    const trimmed = authHeader.trim();
+    return trimmed.toLowerCase().startsWith("bearer ")
+      ? trimmed.slice(7).trim()
+      : trimmed;
+  }
+
+  return undefined;
+}
+
+function buildServerConfigFromExternal(
+  serverName: string,
+  serverConfig: Record<string, any>,
+): MCPServerConfig | null {
+  if (!serverConfig || typeof serverConfig !== "object") {
+    return null;
+  }
+
+  const command =
+    typeof serverConfig.command === "string"
+      ? stripOuterQuotes(serverConfig.command)
+      : "";
+  const args = normalizeStringArray(serverConfig.args);
+  const env = normalizeEnv(serverConfig.env);
+  const remoteUrl = extractRemoteUrl(serverConfig);
+  const declaredServerType = serverConfig.serverType;
+  const isDeclaredRemote =
+    declaredServerType === "remote" ||
+    declaredServerType === "remote-streamable";
+  const isRemoteLike =
+    isDeclaredRemote ||
+    isHttpUrl(serverConfig.url) ||
+    isHttpUrl(serverConfig.remoteUrl) ||
+    isHttpUrl(serverConfig.command) ||
+    isMcpProxyCommand(serverConfig.command) ||
+    args.some((arg) => isMcpProxyCommand(arg));
+
+  if (remoteUrl && isRemoteLike) {
+    return {
+      id: uuidv4(),
+      name: serverName,
+      serverType: isDeclaredRemote
+        ? declaredServerType
+        : inferRemoteServerType(remoteUrl),
+      remoteUrl,
+      bearerToken: extractBearerToken(serverConfig),
+      command: "",
+      args: [],
+      env,
+      disabled: false,
+      autoStart: false,
+    };
+  }
+
+  if (!command) {
+    return null;
+  }
+
+  return {
+    id: uuidv4(),
+    name: serverName,
+    serverType: "local",
+    command,
+    args,
+    env,
+    disabled: false,
+    autoStart: false,
+  };
 }
 
 // Fallback: extract MCPR_TOKEN from TOML by scanning env table text
@@ -113,18 +357,26 @@ export async function syncServersFromClientConfig(
     if (settings.loadExternalMCPConfigs === false) {
       return;
     }
+    const ignoredServerNames = getIgnoredExternalServerNames(settings);
 
     // 既存のサーバを取得して重複を避ける
     const serverService = getServerService();
     const existingServers = serverService.getAllServers();
-    const existingServerNames = new Set(
-      existingServers.map((s: any) => s.name),
+    const existingServerNames = new Set<string>(
+      existingServers.map((s: any) => normalizeServerName(s.name)),
     );
 
     // 各サーバ設定を処理
     for (const serverConfig of serverConfigs) {
+      const normalizedName = normalizeServerName(serverConfig.name);
+
+      // ユーザーが削除済みとしてマークした外部サーバは再インポートしない
+      if (ignoredServerNames.has(normalizedName)) {
+        continue;
+      }
+
       // 同名のサーバが既に存在する場合はスキップ
-      if (existingServerNames.has(serverConfig.name)) {
+      if (existingServerNames.has(normalizedName)) {
         continue;
       }
 
@@ -132,7 +384,7 @@ export async function syncServersFromClientConfig(
       try {
         serverService.addServer(serverConfig);
         // 既存名のセットに追加
-        existingServerNames.add(serverConfig.name);
+        existingServerNames.add(normalizedName);
       } catch (error) {
         console.error(`Failed to import server '${serverConfig.name}':`, error);
       }
@@ -154,6 +406,7 @@ export async function importExistingServerConfigurations(): Promise<void> {
     if (settings.loadExternalMCPConfigs === false) {
       return;
     }
+    const ignoredServerNames = getIgnoredExternalServerNames(settings);
 
     console.log(
       "Checking for existing MCP server configurations in client apps...",
@@ -162,8 +415,8 @@ export async function importExistingServerConfigurations(): Promise<void> {
     // Get existing servers to avoid duplicates
     const serverService = getServerService();
     const existingServers = serverService.getAllServers();
-    const existingServerNames = new Set(
-      existingServers.map((s: any) => s.name),
+    const existingServerNames = new Set<string>(
+      existingServers.map((s: any) => normalizeServerName(s.name)),
     );
 
     // Load all client configurations
@@ -182,8 +435,15 @@ export async function importExistingServerConfigurations(): Promise<void> {
 
       // Add new server configurations
       for (const serverConfig of serverConfigs) {
+        const normalizedName = normalizeServerName(serverConfig.name);
+
+        // ユーザーが削除済みとしてマークした外部サーバは再インポートしない
+        if (ignoredServerNames.has(normalizedName)) {
+          continue;
+        }
+
         // Skip if a server with this name already exists
-        if (existingServerNames.has(serverConfig.name)) {
+        if (existingServerNames.has(normalizedName)) {
           continue;
         }
 
@@ -191,7 +451,7 @@ export async function importExistingServerConfigurations(): Promise<void> {
         try {
           serverService.addServer(serverConfig);
           // Add to existing names set
-          existingServerNames.add(serverConfig.name);
+          existingServerNames.add(normalizedName);
         } catch (error) {
           console.error(
             `Failed to import server '${serverConfig.name}' from ${config.type}:`,
@@ -365,26 +625,12 @@ function extractServersFromConfig(
   const configs: MCPServerConfig[] = [];
 
   for (const [serverName, serverConfig] of Object.entries(servers)) {
-    if (serverConfig && typeof serverConfig === "object") {
-      // mcp-router 自体は除外
-      if (serverName === "mcp-router" || serverName === "mcp_router") continue;
+    // mcp-router 自体は除外
+    if (serverName === "mcp-router" || serverName === "mcp_router") continue;
 
-      // サーバ設定を作成
-      const config: MCPServerConfig = {
-        id: uuidv4(),
-        name: serverName,
-        serverType: "local",
-        command: serverConfig.command,
-        args: Array.isArray(serverConfig.args) ? serverConfig.args : [],
-        env: serverConfig.env || {},
-        disabled: false,
-        autoStart: false,
-      };
-
-      // 必要なフィールドが存在する場合のみ追加
-      if (config.command) {
-        configs.push(config);
-      }
+    const config = buildServerConfigFromExternal(serverName, serverConfig);
+    if (config) {
+      configs.push(config);
     }
   }
 
@@ -463,7 +709,11 @@ function parseCodexTomlServers(tomlText: string): Record<string, any> {
   const addServer = (name: string, server: any): void => {
     if (!name || !server || typeof server !== "object") return;
     const command = (server as any).command;
-    if (!command) return;
+    const url =
+      (server as any).url ||
+      (server as any).remoteUrl ||
+      (server as any).remote_url;
+    if (!command && !url) return;
     const args = Array.isArray((server as any).args)
       ? (server as any).args
       : [];
@@ -471,8 +721,15 @@ function parseCodexTomlServers(tomlText: string): Record<string, any> {
       (server as any).env && typeof (server as any).env === "object"
         ? (server as any).env
         : {};
+    const entry: Record<string, any> = { args, env };
+    if (command) {
+      entry.command = command;
+    }
+    if (url) {
+      entry.url = url;
+    }
 
-    servers[name] = { command, args, env };
+    servers[name] = entry;
   };
 
   const collectFromContainer = (container: any): void => {
@@ -507,26 +764,12 @@ function extractVSCodeServerConfigs(
   _clientType: ClientType,
 ): void {
   for (const [serverName, serverConfig] of Object.entries(servers)) {
-    if (serverConfig && typeof serverConfig === "object") {
-      // Skip 'mcp-router' server as it's this app itself
-      if (serverName === "mcp-router") continue;
+    // Skip 'mcp-router' server as it's this app itself
+    if (serverName === "mcp-router") continue;
 
-      // Create server config
-      const config: MCPServerConfig = {
-        id: uuidv4(),
-        name: serverName,
-        serverType: "local",
-        command: serverConfig.command,
-        args: Array.isArray(serverConfig.args) ? serverConfig.args : [],
-        env: serverConfig.env || {},
-        disabled: false,
-        autoStart: false,
-      };
-
-      // Add the config if it has required fields
-      if (config.command) {
-        configs.push(config);
-      }
+    const config = buildServerConfigFromExternal(serverName, serverConfig);
+    if (config) {
+      configs.push(config);
     }
   }
 }
@@ -541,26 +784,12 @@ function extractStandardServerConfigs(
   _configPath: string,
 ): void {
   for (const [serverName, serverConfig] of Object.entries(servers)) {
-    if (serverConfig && typeof serverConfig === "object") {
-      // Skip 'mcp-router' server as it's this app itself
-      if (serverName === "mcp-router" || serverName === "mcp_router") continue;
+    // Skip 'mcp-router' server as it's this app itself
+    if (serverName === "mcp-router" || serverName === "mcp_router") continue;
 
-      // Create server config
-      const config: MCPServerConfig = {
-        id: uuidv4(),
-        name: serverName,
-        serverType: "local",
-        command: serverConfig.command,
-        args: Array.isArray(serverConfig.args) ? serverConfig.args : [],
-        env: serverConfig.env || {},
-        disabled: false,
-        autoStart: false,
-      };
-
-      // Add the config if it has required fields
-      if (config.command) {
-        configs.push(config);
-      }
+    const config = buildServerConfigFromExternal(serverName, serverConfig);
+    if (config) {
+      configs.push(config);
     }
   }
 }

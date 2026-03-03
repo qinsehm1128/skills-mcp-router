@@ -59,7 +59,7 @@
     "error": "エラー",
     "success": "成功"
   },
-  
+
   "logs": {
     "title": "ログ",
     "filter": "フィルター",
@@ -386,6 +386,7 @@
     "errorEmptyMcpServers": "'mcpServers' オブジェクトには少なくとも1つのサーバが含まれている必要があります。",
     "errorInvalidServerConfig": "'{{serverName}}' のサーバ構成が無効です。",
     "errorMissingCommand": "サーバ '{{serverName}}' に必要な 'command' フィールドがありません。",
+    "errorMissingCommandOrUrl": "サーバ '{{serverName}}' には 'command' またはリモート URL（url/remoteUrl/https command）のいずれかが必要です。",
     "errorInvalidArgs": "サーバ '{{serverName}}' の 'args' が無効です。配列である必要があります。",
     "errorUnknown": "不明なエラーが発生しました。",
     "errorFailedImport": "JSONからサーバをインポートできませんでした。",
